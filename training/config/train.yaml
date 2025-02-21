@@ -3,7 +3,7 @@ defaults:
   - litmodule: train
   - network: flow
   - loss_fns@loss_fns.train:
-    - cmax_iter
+    - cmax
   - loss_fns@loss_fns.validate:
     - rsat
   - optimizer: adam

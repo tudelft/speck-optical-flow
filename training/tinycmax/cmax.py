@@ -1,27 +1,37 @@
+from functools import partial
+
 from dotmap import DotMap
 import torch
 import torch.nn as nn
 
 from cuda_event_ops.cuda import iterative_3d_warp as iterative_3d_warp_cuda
-from tinycmax.cmax_utils import extract_events_from_frames, format_events
+from tinycmax.cmax_utils import format_events, linear_3d_warp
 from tinycmax.iwe import build_iwe
 
 
 class ContrastMaximization(nn.Module):
     """
-    Base class.
+    Contrast maximization loss as used in:
+    - Hagenaars and Paredes-Valles et al., NeurIPS 2021
+        - Linear warping to the two extreme references
+    - Paredes-Valles et al., ICCV 2023
+        - Iterative warping to multiple references (all bin edges in deblurring window)
+    Contrast maximization is done on the warped image of average timestamps.
     """
 
-    cls_name = None
+    cls_name = "cmax"
 
-    def __init__(self, accumulation_window, base, keep_warping, num_backprop_events, select):
+    def __init__(self, accumulation_window, base, warp):
         super().__init__()
 
         self.accumulation_window = accumulation_window
         self.base = base
-        self.keep_warping = keep_warping
-        self.num_backprop_events = num_backprop_events
-        self.select = select
+        if warp == "linear":
+            self.warp_fn = linear_3d_warp
+        elif warp == "iterative":
+            self.warp_fn = partial(iterative_3d_warp_cuda, num_warps=base)
+        else:
+            raise ValueError(f"Unknown warp function: {warp}")
 
         self.total_loss = 0
         self.passes = 0
@@ -46,13 +56,15 @@ class ContrastMaximization(nn.Module):
 
     def compute_cmax_loss(self, events, flow_maps):
         # warp events: (b, n, 5) -> (b, n, d + 1, 5) with (x, y, t, t_orig, p)
-        warped_events = iterative_3d_warp_cuda(
-            events, flow_maps, self.base, self.keep_warping, self.num_backprop_events
-        )
+        warped_events = self.warp_fn(events, flow_maps)
 
         # build iwe and iwt with (trilinear) splatting
         _, _, h, w, _ = flow_maps.shape
-        iwe, iwt = build_iwe(warped_events, self.base, self.select, (h, w))  # (b, 2, d + 1, h, w)
+        iwe, iwt = build_iwe(warped_events, self.base, (h, w))  # (b, 2, d + 1, h, w)
+
+        # TODO: needed for linear: only keep nonzero, not nice
+        # iwe = iwe[:, :, [0, -1]]
+        # iwt = iwt[:, :, [0, -1]]
 
         # split into negative and positive polarity
         iwe_neg, iwe_pos = iwe.unbind(1)
@@ -78,7 +90,7 @@ class ContrastMaximization(nn.Module):
         if not accumulated_events.numel():
             return torch.zeros_like(self.buffer.flow_maps[0])
         _, _, h, w = self.buffer.flow_maps[0].shape
-        accumulated_event_frame, _ = build_iwe(accumulated_events, 1, None, (h, w))  # (b, 2, d, h, w)
+        accumulated_event_frame, _ = build_iwe(accumulated_events, 1, (h, w))  # (b, 2, d, h, w)
         return accumulated_event_frame.sum(2)
 
     def compute_iwe(self, tref):
@@ -88,17 +100,28 @@ class ContrastMaximization(nn.Module):
             return torch.zeros_like(self.buffer.flow_maps[0])
 
         # warp events: (b, n, 5) -> (b, n, d + 1, 5) with (x, y, t, t_orig, p)
-        warped_events = iterative_3d_warp_cuda(
-            events, flow_maps, self.base, self.keep_warping, self.num_backprop_events
-        )
+        warped_events = self.warp_fn(events, flow_maps)
 
         # build iwe and iwt with (trilinear) splatting
         _, _, h, w, _ = flow_maps.shape
-        iwe, _ = build_iwe(warped_events, self.base, self.select, (h, w))  # (b, 2, d + 1, h, w)
+        iwe, _ = build_iwe(warped_events, self.base, (h, w))  # (b, 2, d + 1, h, w)
         return iwe[:, :, tref]
 
     def backward(self):
-        raise NotImplementedError
+        # get events and flow maps
+        events, flow_maps = self.prepare_backward()
+
+        # if no events, no loss
+        # TODO: for some reason catching 0 dim in cuda doesn't work
+        if not events.numel():
+            return None
+
+        # compute deblurring loss
+        # mean over batch and reference times
+        loss = self.compute_cmax_loss(events, flow_maps)
+        self.total_loss += loss.mean()
+
+        return self.total_loss
 
     def reset(self):
         self.total_loss = 0
@@ -117,32 +140,6 @@ class ContrastMaximization(nn.Module):
             visuals[f"{self.cls_name}_image_warped_events_0"] = self.compute_iwe(0)
             visuals[f"{self.cls_name}_image_warped_events_t"] = self.compute_iwe(self.passes)
         return visuals
-
-
-class IterativeContrastMaximization(ContrastMaximization):
-    """
-    Contrast maximization loss as used in Paredes-Valles et al., ICCV 2023.
-    Involves iterative warping to multiple references (all bin edges in deblurring window).
-    Contrast maximization is done on the warped image of average timestamps.
-    """
-
-    cls_name = "cmax"
-
-    def backward(self):
-        # get events and flow maps
-        events, flow_maps = self.prepare_backward()
-
-        # if no events, no loss
-        # TODO: for some reason catching 0 dim in cuda doesn't work
-        if not events.numel():
-            return None
-
-        # compute deblurring loss
-        # mean over batch and reference times
-        loss = self.compute_cmax_loss(events, flow_maps)
-        self.total_loss += loss.mean()
-
-        return self.total_loss
 
 
 class RatioSquaredAvgTimestamps(ContrastMaximization):

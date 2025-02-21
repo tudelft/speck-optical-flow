@@ -3,7 +3,7 @@ import torch
 from cuda_event_ops.cuda import trilinear_splat as trilinear_splat_cuda
 
 
-def build_iwe(warped_events, base, select, resolution):
+def build_iwe(warped_events, base, resolution, select=None):
     # select reference times
     if select:
         start, stop = select

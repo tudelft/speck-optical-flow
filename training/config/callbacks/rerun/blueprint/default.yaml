@@ -17,10 +17,10 @@ _args_:
         contents:
           - _target_: rerun.blueprint.Spatial2DView
             name: accumulated_events
-            contents: [/cmax_accumulated_events]
+            contents: [/cmax_accumulated_events, /rsat_accumulated_events]
           - _target_: rerun.blueprint.Spatial2DView
             name: warped_events_0
-            contents: [/cmax_image_warped_events_0]
+            contents: [/cmax_image_warped_events_0, /rsat_image_warped_events_0]
           - _target_: rerun.blueprint.Spatial2DView
             name: warped_events_t
-            contents: [/cmax_image_warped_events_t]
+            contents: [/cmax_image_warped_events_t, /rsat_image_warped_events_t]
