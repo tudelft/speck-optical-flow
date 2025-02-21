@@ -1,0 +1,26 @@
+_target_: rerun.blueprint.Blueprint
+_args_:
+  - _target_: rerun.blueprint.Vertical
+    contents:
+      - _target_: rerun.blueprint.Horizontal
+        contents:
+          - _target_: rerun.blueprint.Spatial2DView
+            name: events
+            contents: [/input_events]
+          - _target_: rerun.blueprint.Spatial2DView
+            name: flow
+            contents: [/pred_flow]
+          - _target_: rerun.blueprint.TimeSeriesView
+            name: losses
+            contents: [/cmax_loss, /rsat_loss]
+      - _target_: rerun.blueprint.Horizontal
+        contents:
+          - _target_: rerun.blueprint.Spatial2DView
+            name: accumulated_events
+            contents: [/cmax_accumulated_events]
+          - _target_: rerun.blueprint.Spatial2DView
+            name: warped_events_0
+            contents: [/cmax_image_warped_events_0]
+          - _target_: rerun.blueprint.Spatial2DView
+            name: warped_events_t
+            contents: [/cmax_image_warped_events_t]

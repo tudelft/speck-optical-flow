@@ -1,0 +1,2 @@
+_target_: tinycmax.litmodule.Train
+compile_network: reduce-overhead  # null/false, default, reduce-overhead

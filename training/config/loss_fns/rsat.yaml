@@ -1,0 +1,7 @@
+rsat:
+  _target_: tinycmax.cmax.RatioSquaredAvgTimestamps
+  accumulation_window: 10
+  base: ${.accumulation_window}
+  keep_warping: true  # base == accumulation_window so doesn't matter
+  num_backprop_events: 0  # 0 = backprop all events
+  select: null  # everything

@@ -1,0 +1,12 @@
+defaults:
+  - hydra: no_logging
+  - _self_
+
+wandb:
+  entity: Huizerd
+  project: tinycmax
+
+stage: validate
+name: ${stage}_${runid}_${checkpoint}
+runid: ???
+checkpoint: latest

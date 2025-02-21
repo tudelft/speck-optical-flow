@@ -1,0 +1,4 @@
+checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: null
+  save_on_train_epoch_end: false  # only save on validation

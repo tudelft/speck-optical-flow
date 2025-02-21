@@ -6,7 +6,9 @@ Minimal implementation of the contrast maximization (CMax) framework for self-su
 
 ## Installation
 
-WIP
+```
+conda env create -f env.yaml && conda activate tinycmax && pre-commit install
+```
 
 ## Usage
 

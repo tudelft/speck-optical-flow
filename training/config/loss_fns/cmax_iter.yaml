@@ -1,0 +1,7 @@
+cmax:
+  _target_: tinycmax.cmax.IterativeContrastMaximization
+  accumulation_window: 10
+  base: 5
+  keep_warping: true  # also check for going out outside base
+  num_backprop_events: 0  # 0 = backprop all events
+  select: null  # start:stop, null for everything

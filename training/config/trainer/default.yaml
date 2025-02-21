@@ -1,0 +1,12 @@
+_target_: lightning.Trainer
+accelerator: gpu
+max_epochs: 100
+check_val_every_n_epoch: 10
+limit_val_batches: null  # evaluate on all validation data; set to int for N batches
+num_sanity_val_steps: 0  # TODO: to deal with this we need to reset model after sanity/validation epoch
+log_every_n_steps: 10  # every n batches
+deterministic: false
+precision: 32  # 32 default; bf16-mixed is twice as fast on laptop
+benchmark: false  # no clearly visible effect on laptop
+profiler: null  # simple or advanced; use with max_epochs
+detect_anomaly: false

@@ -1,0 +1,10 @@
+_target_: lightning.pytorch.loggers.WandbLogger
+entity: Huizerd
+project: tinycmax
+save_dir: logs
+log_model: all
+# mode: disabled  # TODO: use this for disabling logging?
+# settings:
+#   _target_: wandb.Settings
+#   code_dir: .
+notes: null
