@@ -3,7 +3,7 @@ import torch
 from cuda_event_ops.torch_batch import compute_inside_mask, get_event_flow_3d, linear_warp
 
 
-def format_events(events, counts, stack=False):
+def format_events(events, counts, stack=False, crop=True):
     """
     Go from list of padded (b, n, 4) events with (t, y, x, p)
     to padded (b, n, 5) events with (x, y, t, pass, p)
@@ -14,8 +14,7 @@ def format_events(events, counts, stack=False):
         max_counts = [max(max_counts)] * len(max_counts)  # overall
     output = []
     for i, (ev, c) in enumerate(zip(events, max_counts)):
-        t, y, x, p = ev[:, :c].unbind(-1)
-        # t, y, x, p = ev.unbind(-1)  # TODO: needed for linear
+        t, y, x, p = ev[:, :c].unbind(-1) if crop else ev.unbind(-1)  # TODO: temporary
         z = torch.ones_like(t) * i
         output.append(torch.stack([x, y, t + i, z, p], dim=-1))
     output = torch.cat(output, dim=1) if not stack else torch.stack(output, dim=2)
@@ -66,10 +65,10 @@ def linear_3d_warp(events, flows):
     # (b, 2d, 5, n) -> (b, n, 2, 5)
     x, y, t_orig, p = events.unbind(2)
     t = torch.ones_like(t_orig) * t_ref.view(1, -1, 1)
-    events = torch.stack([x, y, t, t_orig, p], dim=-1).view(b, -1, 2, 5)
+    events = torch.stack([x, y, t, t_orig, p], dim=-1).view(b, 2, -1, 5).transpose(1, 2)
 
     # put zeros between 0 and d + 1
-    # TODO: not nice
+    # TODO: not nice! temporary solution
     events_0, events_t = events.unbind(2)
     events = torch.stack([events_0, *[torch.zeros_like(events_t) for _ in range(d - 1)], events_t], dim=2)
 

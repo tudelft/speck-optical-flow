@@ -51,7 +51,8 @@ class UzhFpvSequence:
 
         # attributes
         self.sensor_size = tuple(self.fs.attrs["sensor_size"])  # height, width
-        self.K_rect = self.fs.attrs["K_rect"]
+        self.fw_rect_map = self.fs["fw_rect_map"][:]
+        self.bw_rect_map = self.fs["bw_rect_map"][:]
 
         # get duration of recording
         self.t0, self.tk = self.fs["events/t"][[0, -1]]
@@ -214,14 +215,14 @@ class UzhFpvSequence:
             auxs.events = auxs.events.flip(0)
             auxs.counts = auxs.counts.flip(0)
         if "flip_pol" in self.augmentation:
-            frames = frames.flip(1)  # only flip polarity
+            frames = frames.flip(1)
             auxs.events[..., 3] *= -1
         if "flip_ud" in self.augmentation:
             frames = frames.flip(2)
-            auxs.events[..., 2] = (bottom - top - 1) - auxs.events[..., 2]
+            auxs.events[..., 1] = (bottom - top - 1) - auxs.events[..., 1]
         if "flip_lr" in self.augmentation:
             frames = frames.flip(3)
-            auxs.events[..., 1] = (right - left - 1) - auxs.events[..., 1]
+            auxs.events[..., 2] = (right - left - 2) - auxs.events[..., 2]
 
         # return static dotmap
         sample = DotMap(

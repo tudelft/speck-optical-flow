@@ -26,6 +26,7 @@ class ContrastMaximization(nn.Module):
 
         self.accumulation_window = accumulation_window
         self.base = base
+        self.warp = warp
         if warp == "linear":
             self.warp_fn = linear_3d_warp
         elif warp == "iterative":
@@ -46,7 +47,7 @@ class ContrastMaximization(nn.Module):
         # format events
         events = [aux["events"] for aux in self.buffer.aux]
         counts = [aux["counts"] for aux in self.buffer.aux]
-        events = format_events(events, counts)  # padded (b, n, 5)
+        events = format_events(events, counts, crop=self.warp != "linear")  # padded (b, n, 5)
 
         # stack flows
         flow_maps = torch.stack(self.buffer.flow_maps, dim=2)  # (b, 2, d, h, w)
@@ -62,9 +63,10 @@ class ContrastMaximization(nn.Module):
         _, _, h, w, _ = flow_maps.shape
         iwe, iwt = build_iwe(warped_events, self.base, (h, w))  # (b, 2, d + 1, h, w)
 
-        # TODO: needed for linear: only keep nonzero, not nice
-        # iwe = iwe[:, :, [0, -1]]
-        # iwt = iwt[:, :, [0, -1]]
+        # TODO: needed for linear: only keep nonzero, temporary solution
+        if self.warp == "linear":
+            iwe = iwe[:, :, [0, -1]]
+            iwt = iwt[:, :, [0, -1]]
 
         # split into negative and positive polarity
         iwe_neg, iwe_pos = iwe.unbind(1)
@@ -85,7 +87,9 @@ class ContrastMaximization(nn.Module):
     def get_accumulated_events(self):
         events = [aux["events"] for aux in self.buffer.aux]
         counts = [aux["counts"] for aux in self.buffer.aux]
-        accumulated_events = format_events(events, counts, stack=True)  # padded (b, n, d, 5)
+        accumulated_events = format_events(
+            events, counts, stack=True, crop=self.warp != "linear"
+        )  # padded (b, n, d, 5)
         accumulated_events[..., 2] = accumulated_events[..., 3]  # prevent trilinear splat
         if not accumulated_events.numel():
             return torch.zeros_like(self.buffer.flow_maps[0])
