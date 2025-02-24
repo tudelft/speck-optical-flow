@@ -11,6 +11,8 @@ Minimal implementation of the contrast maximization (CMax) framework for self-su
 
 In this repo, we implement CMax with both linear and iterative warping, and train a simple ConvGRU network in a sequential setting on the [UZH-FPV](https://fpv.ifi.uzh.ch/) dataset.
 
+Training curves and trained model checkpoints can be found on [Weights & Biases](https://wandb.ai/huizerd/tinycmax).
+
 ## Installation
 
 Requires a NVIDIA GPU to run due to CUDA dependencies.
@@ -46,11 +48,12 @@ python train.py
 
 ### Validation
 ```
-python validate.py runid=<wandb_run_id>
+python validate.py runid=<run_id>
 ```
 - Run selection:
-    - Get `wandb_run_id` from Weights & Biases
+    - Get `run_id` from Weights & Biases
     - Add `checkpoint=<checkpoint_id>` to select specific checkpoint
+    - To use a pre-trained model, leave [`wandb.yaml`](config/logger/wandb.yaml) as-is and provide a `run_id` and `checkpoind_id` from our [Weights & Biases](https://wandb.ai/huizerd/tinycmax)
 - Visualize in Rerun: same as above
 
 
