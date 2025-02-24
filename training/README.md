@@ -18,7 +18,7 @@ Training curves and trained model checkpoints can be found on [Weights & Biases]
 Requires a NVIDIA GPU to run due to CUDA dependencies.
 
 ```
-git clone --recurse-submodules git@github.com:Huized/tinycmax.git && cd tinycmax
+git clone --recurse-submodules git@github.com:Huizerd/tinycmax.git && cd tinycmax
 conda env create -f env.yaml && conda activate tinycmax && pre-commit install
 ```
 
