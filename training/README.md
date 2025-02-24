@@ -1,16 +1,9 @@
 # TinyCMax
 
-<center>
-
 |   Warping  |                             Video                                    |
-|:-----------|:--------------------------------------------------------------------:|
+|-----------|:--------------------------------------------------------------------:|
 |   Linear   | <img src="assets/linear.gif" alt="linear" style="display: block; margin: 0 auto;"> |
 | Iterative  | <img src="assets/iterative.gif" alt="iterative" style="display: block; margin: 0 auto;"> |
-
-</center>
-
-Include mp4:
-[![linear](assets/linear.gif)](assets/output.mp4)
 
 Minimal implementation of the contrast maximization (CMax) framework for self-supervised learning (SSL) from events. Related publications:
 
