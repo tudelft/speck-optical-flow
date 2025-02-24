@@ -1,14 +1,11 @@
 from lightning.pytorch.callbacks import Callback
 
-from tinycmax.visualizer import RerunVisualizer
+from tinycmax.visualizer import ImageVisualizer, RerunVisualizer
 
 
-class LiveVisualizer(Callback):
+class Visualizer(Callback):
 
     is_visualizer = True
-
-    def __init__(self, app_id, server, web, compression, time_window, blueprint=None):
-        self.visualizer = RerunVisualizer(app_id, server, web, compression, time_window, blueprint)
 
     def on_batch_end(self, outputs):
         for output in outputs.values():
@@ -24,10 +21,22 @@ class LiveVisualizer(Callback):
 
             # for scalar values
             for k in [k for k in output.keys() if isinstance(output[k], (int, float))]:
-                self.visualizer.log_scalar(k, output[k])
+                self.visualizer.scalar(k, output[k])
 
     def on_train_batch_end(self, trainer, litmodule, outputs, batch, batch_idx):
         self.on_batch_end(outputs)
 
     def on_validation_batch_end(self, trainer, litmodule, outputs, batch, batch_idx):
         self.on_batch_end(outputs)
+
+
+class LiveVisualizer(Visualizer):
+
+    def __init__(self, app_id, server, web, compression, time_window, blueprint=None):
+        self.visualizer = RerunVisualizer(app_id, server, web, compression, time_window, blueprint)
+
+
+class ImageLogger(Visualizer):
+
+    def __init__(self, root_dir, keys, format):
+        self.visualizer = ImageVisualizer(root_dir, keys, format)

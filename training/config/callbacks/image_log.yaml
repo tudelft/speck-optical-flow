@@ -1,0 +1,5 @@
+visualizer:
+  _target_: tinycmax.callbacks.ImageLogger
+  root_dir: logs/images/${...name}
+  keys: [input_events, pred_flow, rsat_accumulated_events, rsat_image_warped_events_t]
+  format: png

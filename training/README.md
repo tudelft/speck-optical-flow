@@ -1,5 +1,17 @@
 # TinyCMax
 
+<center>
+
+|   Warping  |                             Video                                    |
+|:-----------|:--------------------------------------------------------------------:|
+|   Linear   | <img src="assets/linear.gif" alt="linear" style="display: block; margin: 0 auto;"> |
+| Iterative  | <img src="assets/iterative.gif" alt="iterative" style="display: block; margin: 0 auto;"> |
+
+</center>
+
+Include mp4:
+[![linear](assets/linear.gif)](assets/output.mp4)
+
 Minimal implementation of the contrast maximization (CMax) framework for self-supervised learning (SSL) from events. Related publications:
 
 1. [Self-Supervised Learning of Event-Based Optical Flow with Spiking Neural Networks](https://proceedings.neurips.cc/paper/2021/hash/39d4b545fb02556829aab1db805021c3-Abstract.html)
@@ -56,6 +68,21 @@ python validate.py runid=<run_id>
     - To use a pre-trained model, leave [`wandb.yaml`](config/logger/wandb.yaml) as-is and provide a `run_id` and `checkpoind_id` from our [Weights & Biases](https://wandb.ai/huizerd/tinycmax)
 - Visualize in Rerun: same as above
 
+### Generating videos
+In conda:
+```
+python validate.py runid=rb5gp4fv +callbacks=image_log +datamodule.val_recordings="[[indoor_forward_11_davis,[53e6,63e6]]]"
+```
+Outside of conda:
+```
+cd logs/images/validate_rb5gp4fv_latest
+
+# gif
+ffmpeg -framerate 50 -i input_events/%05d.png -framerate 50 -i pred_flow/%05d.png -framerate 50 -i rsat_accumulated_events/%05d.png -framerate 50 -i rsat_image_warped_events_t/%05d.png -filter_complex "[0:v][1:v][2:v][3:v]hstack=inputs=4,scale=640:-1:flags=lanczos[v]" -map "[v]" -y output.gif
+
+# mp4
+ffmpeg -framerate 100 -i input_events/%05d.png -framerate 100 -i pred_flow/%05d.png -framerate 100 -i rsat_accumulated_events/%05d.png -framerate 100 -i rsat_image_warped_events_t/%05d.png -filter_complex "[0:v][1:v][2:v][3:v]hstack=inputs=4[v]" -map "[v]" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p -y output.mp4
+```
 
 ## To do
 
