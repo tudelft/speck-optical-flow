@@ -1,6 +1,6 @@
 # TinyCMax
 
-|   Warping  |                             Video                                    |
+|   Warping  |                             Events, flow, accumulated events, image of warped events       |
 |-----------|:--------------------------------------------------------------------:|
 |   Linear   | <img src="assets/linear.gif" alt="linear" style="display: block; margin: 0 auto;"> |
 | Iterative  | <img src="assets/iterative.gif" alt="iterative" style="display: block; margin: 0 auto;"> |
