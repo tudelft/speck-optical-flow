@@ -13,6 +13,8 @@ The spike outputs are then converted to continuous floating point values using g
 
 The complete inference is done live with incoming inputs and output optical flows. For this run code, `speck_inference_64ch.py`. 
 
+All the required files are in Optical_Flow_run folder.
+
 
 
 
