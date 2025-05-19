@@ -21,25 +21,23 @@ import queue
 import threading
 
 
-checkpoint = torch.load("Optical_Flow_tinycmax/iterative_model_hand_16ch.pt", map_location="cpu")
+checkpoint = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cpu")
 print("Checkpoint Keys:", checkpoint.keys())
 
-total_params = sum(p.numel() for p in checkpoint.values())
-print(f"Total parameters: {total_params}")
-
 #---------------Making model ready--------------------------------------------
-import network_woenc_GRU as network_woenc_GRU
+#import Optical_Flow_tinycmax.network_woenc_minGRU as network_woenc_minGRU
+import network_woenc_minGRU 
 
-model = network_woenc_GRU.WrappedFlowNetwork(
-    memory_channels=16,
-    decoder_channels=16,
+model = network_woenc_minGRU.WrappedFlowNetwork(
+    memory_channels=32,
+    decoder_channels=32,
     activation_fn=nn.ReLU,
     final_bias=True,
     padding_mode="reflect",
     scaling=32
 )
 
-state_dict = torch.load("Optical_Flow_tinycmax/iterative_model_hand_16ch.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
+state_dict = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
 print(state_dict.keys())
 
 ## Skipping the encoder states
@@ -59,22 +57,21 @@ model.to(device)
 #------------------------------------------------------------------
 
 ann = nn.Sequential(
-    nn.Conv2d(2, 4, kernel_size=7, padding=3, stride=2, bias=False),
+    nn.Conv2d(2, 8, kernel_size=7, padding=3, stride=2, bias=False),
     nn.ReLU(),
  
-    nn.Conv2d(4, 8, kernel_size=3, padding=1,stride=2, bias=False),
-    nn.ReLU(),
-
     nn.Conv2d(8, 16, kernel_size=3, padding=1,stride=2, bias=False),
     nn.ReLU(),
 
- # output is 16, 16, 16
+    nn.Conv2d(16, 32, kernel_size=3, padding=1,stride=2, bias=False),
+    nn.ReLU(),
+
+ # output is 32, 16, 16
 )
 
 ann[0].weight.data = checkpoint["network.encoder.enc1.synapse.weight"]
 ann[2].weight.data = checkpoint["network.encoder.enc2.conv0.synapse.weight"]
 ann[4].weight.data = checkpoint["network.encoder.enc2.conv1.synapse.weight"]
-
 
 print(ann)
 
@@ -118,6 +115,7 @@ dynapcnn_net = sindynapcnn.DynapcnnNetwork(
         dvs_input=True,)
 
 #-------------------------------------------
+
 collection0 = []
 collection1 = []
 collection2 = []
@@ -169,7 +167,7 @@ def inference():
     
         return kernel_2d.unsqueeze(0).unsqueeze(0)  # Shape: (1, 1, H, W)
 
-    def gaussian_smooth(frames, kernel_size=3, sigma=0.3):
+    def gaussian_smooth(frames, kernel_size=5, sigma=0.3):
         """Applies Gaussian smoothing to the input raster frames using convolution."""
         kernel = create_gaussian_kernel(kernel_size, sigma).to(frames.device)
 
@@ -222,22 +220,35 @@ def inference():
 
         return flow_image
     
+    def compute_divergence_finite_diff_torch(flow):
+        u = flow[0]  # shape: (H, W)
+        v = flow[1]
+
+        u_mean = u.mean()
+        v_mean = v.mean()
+
+        du_dx = torch.zeros_like(u)
+        dv_dy = torch.zeros_like(v)
+
+        du_dx[:, :-1] = u[:, 1:] - u[:, :-1]
+        dv_dy[:-1, :] = v[1:, :] - v[:-1, :]
+
+        divergence = du_dx + dv_dy
+        return divergence, u_mean, v_mean 
+    
     while True:
-        
+
         data = get_latest_collection1()
         print(len(data))
-        
 
         if len(data) > 0:
             raster = ChipFactory.events_to_raster(self=ChipFactory, events=data, dt = 0.01,
-                                          shape=(16,16,16))       
-            # raster = ((gaussian_smooth(raster)).unsqueeze(0))
-
-            
-
-            ####  Model Inference ##---------------------------------
+                                          shape=(32,16,16))       
+            raster = ((gaussian_smooth(raster)).unsqueeze(0))
 
             start_time = time.time()
+
+            ####  Model Inference ##---------------------------------
             output_hidden = output_hidden_list[-1]
             input_dict = {"events": raster}
 
@@ -245,9 +256,11 @@ def inference():
                 output_dict, output_hidden = model(input_dict, output_hidden)
                 flow_map = output_dict["flow"].cpu()      
             flow_map_np = flow_map.cpu().numpy().squeeze() 
-            # collection2.append(flow_map.cpu())
+            #print(flow_map_np.shape)
 
-            
+            div, u, v = compute_divergence_finite_diff_torch(flow_map.squeeze(0))
+            print(div.mean(), u, v)
+        
 
             new_size = (600, 600)
 
@@ -261,22 +274,20 @@ def inference():
         
 
             # # # Show image
+            #cv2.imshow("Optical Flow", flow_image)
             cv2.imshow("Optical Flow", flow_with_quiver)
             cv2.waitKey(1) 
+         
 
             output_hidden_list.append(output_hidden)
 
             end_time = time.time()
-            duration = end_time - start_time
-            rate = 1 / duration
-            print(f"Spike rate: {rate:.2f} Hz") 
-
-            
-            # rate = 1.0/ duration
-            # print(f"Spike rate: {duration:.2f} seconds")
+            duration = end_time - start_time 
+            rate = 1.0/ duration
+            print(f"Spike rate: {rate:.2f} Hz")
               
 
-feature_count = 16
+feature_count = 32
 def configure_visualizer(graph, streamer):
     config_source, _ = graph.sequential([samna.BasicSourceNode_ui_event(), streamer])
     #graph.start()
@@ -285,19 +296,7 @@ def configure_visualizer(graph, streamer):
         # add plots to gui
         plots=[
             # add plot to show pixels
-            samna.ui.ActivityPlotConfiguration(128, 128, "DVS Layer", [0, 0, 1.0, 1.0]),
-            samna.ui.PowerMeasurementPlotConfiguration(
-                    title="Power Consumption",
-                    channel_count=5,
-                    line_names=["io", "ram", "logic", "vddd", "vdda"],
-                    layout=[0, 0.8, 1, 1],
-                    show_x_span=10,
-                    label_interval=2,
-                    max_y_rate=1.5,
-                    show_point_circle=False,
-                    default_y_max=1,
-                    y_label_name="power (mW)",
-                )]) # [0, 0, 1.0, 1.0])
+            samna.ui.ActivityPlotConfiguration(128, 128, "DVS Layer", [0, 0, 1.0, 1.0]),]) # [0, 0, 1.0, 1.0])
 
     return config_source, visualizer_config
 
@@ -363,15 +362,6 @@ spike_count_filter.set_feature_count(feature_count)
 _, readout_filter, _ = graph.sequential([spike_collection_filter, "Speck2eCustomFilterNode", streamer])
 readout_filter.set_filter_function(custom_readout)
 
-# power details
-power = dk.get_power_monitor()
-power.start_auto_power_measurement(20)
-power_source, _, _ = graph.sequential([power.get_source_node(), "MeasurementToVizConverter", streamer])
-power_sink = samna.graph.sink_from(power_source)
-
-def get_events():
-        return power_sink.get_events()
-
 # Configure the visualizer
 config_source, visualizer_config = configure_visualizer(graph, streamer)
 config_source.write([visualizer_config])
@@ -383,8 +373,6 @@ threading.Thread(target=inference, daemon=True).start()
 
 gui_process.join()
 
-ps = get_events()
-
 readout_filter.stop()
 graph.stop()
 
@@ -394,15 +382,3 @@ graph.stop()
 
 # with open('Optical_Flow_tinycmax/data/collection2_flowmaps64_depth.npy', 'wb') as f:
 #     pickle.dump(collection2, f)
-
-
-channel_data = [[] for _ in range(5)]
-for record in ps:
-    #print(record)
-    channel_data[record.channel].append((record.timestamp, record.value))
-
-output_path = "Optical_Flow_tinycmax/data/power_data.npy"
-os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-numpy_arrays = [np.array(data) for data in channel_data]
-np.save(output_path, numpy_arrays)
