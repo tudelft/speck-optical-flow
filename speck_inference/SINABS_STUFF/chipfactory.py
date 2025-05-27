@@ -283,65 +283,18 @@ class ChipFactory:
         return raster
 
 
-    # def events_to_raster(
-    #     self, events: List, num_timebins: int, dt: float = 1e-3,  shape: Optional[Tuple] = None
-    #     ) -> torch.Tensor:
-    #     """
-    #     Convert events from DynapcnnNetworks to spike raster
-    #     Note: Timestamp of first event will be considered as start time.
+    def events_to_raster_fast(events, shape=(16, 16, 16)):
+        import torch
 
-    #     Parameters
-    #     ----------
+        if not events:
+            return torch.zeros((1, *shape))
 
-    #     events: List[Spike]
-    #         A list of events that will be streamed to the device
-    #     dt: float
-    #         Length of each time step for rasterization (in seconds)
-    #     shape: Optional[Tuple]
-    #         Shape of the raster to be produced, excluding the time dimension. (Channel, Height, Width)
-    #         If this is not specified, the shape is inferred based on the max values found in the events.
+        ts = torch.tensor([e.timestamp for e in events])
+        xs = torch.tensor([e.x for e in events])
+        ys = torch.tensor([e.y for e in events])
+        fs = torch.tensor([e.feature for e in events])
 
-    #     Returns
-    #     -------
-    #     raster: torch.Tensor
-    #         A 4 dimensional tensor of spike events with the dimensions [Time, Channel, Height, Width]
-    #     """
-    #     # Timestamps are in microseconds
-    #     timestamps = [event.timestamp for event in events]
-    #     start_timestamp = min(timestamps)
-    #     timestamps = [ts - start_timestamp for ts in timestamps]
-    #     xs = [event.x for event in events]
-    #     ys = [event.y for event in events]
-    #     features = [event.feature for event in events]
+        raster = torch.zeros((1, *shape))
+        raster[0, fs, ys, xs] += 1
 
-    #     # Calculate the total time span
-    #     max_time = max(timestamps)
-    #     min_time = min(timestamps)
-    #     time_span = max_time - min_time
-
-    #     bin_width = time_span / num_timebins
-
-
-    #     if shape:
-    #         shape = (num_timebins, *shape)
-    #         raster = torch.zeros(shape)
-    #     else:
-    #         raster = torch.zeros(
-    #             num_timebins,
-    #             max(features) + 1,
-    #             max(ys) + 1,
-    #             max(xs) + 1,
-    #         )
-    #     for event in events:
-    #         timebin = int((event.timestamp - start_timestamp) / bin_width)
-    #         timebin = min(timebin, num_timebins - 1) 
-
-    #         raster[
-    #             timebin, #int((event.timestamp - start_timestamp) / dt_us),
-    #             event.feature,
-    #             event.y,
-    #             event.x,
-    #         ] += 1
-
-    #     return raster
-
+        return raster
