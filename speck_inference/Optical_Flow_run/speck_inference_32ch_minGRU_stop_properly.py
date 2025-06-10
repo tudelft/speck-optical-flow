@@ -391,22 +391,9 @@ config_source.write([visualizer_config])
 graph.start()
 
 # lets put here
-inference_thread = threading.Thread(target=inference)
+inference_thread = threading.Thread(target=inference, daemon=True)
 inference_thread.start()
 
-# gui_process.join()
-
-
-# stop_event.set()
-# inference_thread.join() 
-
-# readout_filter.stop()
-
-# ps = event_sink.get_events()
-
-
-# graph.stop()
-# samna.device.close_device(dk)
 
 try:
     # poll until either the GUI exits or stop_event is set
@@ -415,7 +402,7 @@ try:
 finally:
     # clean up everything else
     stop_event.set()                       # signal the inference thread to quit
-    inference_thread.join(timeout=2)       # wait for it
+    inference_thread.join()       
     readout_filter.stop()                  # stop the Samna filters
     ps = event_sink.get_events()           # grab any remaining events
     graph.stop()                           # stop the Samna graph
