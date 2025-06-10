@@ -113,10 +113,26 @@ collection1_timestamps = []
 
 last_readout_time = None
 
+# Create an event for safe shutdown
+stop_event = threading.Event()
+
+zero_count = 0
+zero_threshold = 100
+
 def custom_readout(collection):
-    global last_readout_time
+    global last_readout_time, zero_threshold, zero_count, stop_event
     global collection1 #, collection1_timestamps
     collection1.append(collection)
+
+    if len(collection) <= 100:
+        zero_count += 1
+        if zero_count >= zero_threshold:
+            print(f"No events for {zero_threshold} cycles — stopping inference.")
+            stop_event.set()
+            #break
+                #print(zero_count)
+    else:
+            zero_count = 0
 
     #collection0.append(collection)
 
@@ -125,7 +141,7 @@ def custom_readout(collection):
     if last_readout_time is not None:
         interval = now - last_readout_time
         frequency_hz = 1.0 / interval
-        print(f"[custom_readout] Receiving collections at ~{frequency_hz:.2f} Hz")
+        #print(f"[custom_readout] Receiving collections at ~{frequency_hz:.2f} Hz")
     else:
         print("[custom_readout] First readout received")
 
@@ -156,11 +172,10 @@ def get_latest_collection1():
 
 output_hidden_list = [None]
 
-# Create an event for safe shutdown
-stop_event = threading.Event()
+
 
 def inference():
-    global output_hidden_list
+    global output_hidden_list, zero_count, zero_threshold, stop_event
     global model
     global collection2
 
@@ -247,9 +262,10 @@ def inference():
         return divergence, u_mean, v_mean 
     
     while not stop_event.is_set():
-
         data = get_latest_collection1()
-        print(len(data))
+
+        # data = get_latest_collection1()
+        #print(len(data))
 
         if len(data) > 0:
             raster = ChipFactory.events_to_raster_fast(events=data,
@@ -267,8 +283,8 @@ def inference():
             flow_map_np = flow_map.cpu().numpy().squeeze() 
             collection2.append(flow_map.cpu())
 
-            # div, u, v = compute_divergence_finite_diff_torch(flow_map.squeeze(0))
-            # print(div.mean(), u, v)
+            div, u, v = compute_divergence_finite_diff_torch(flow_map.squeeze(0))
+            print(div.mean(), u, v)
         
 
             # new_size = (600, 600)
@@ -378,43 +394,59 @@ graph.start()
 inference_thread = threading.Thread(target=inference)
 inference_thread.start()
 
-gui_process.join()
-
-stop_event.set()
-inference_thread.join() 
-
-readout_filter.stop()
-
-ps = event_sink.get_events()
+# gui_process.join()
 
 
+# stop_event.set()
+# inference_thread.join() 
 
-graph.stop()
-samna.device.close_device(dk)
+# readout_filter.stop()
+
+# ps = event_sink.get_events()
+
+
+# graph.stop()
+# samna.device.close_device(dk)
+
+try:
+    # poll until either the GUI exits or stop_event is set
+    while gui_process.is_alive() and not stop_event.is_set():
+        time.sleep(0.1)
+finally:
+    # clean up everything else
+    stop_event.set()                       # signal the inference thread to quit
+    inference_thread.join(timeout=2)       # wait for it
+    readout_filter.stop()                  # stop the Samna filters
+    ps = event_sink.get_events()           # grab any remaining events
+    graph.stop()                           # stop the Samna graph
+    samna.device.close_device(dk)          # close the hardware
+    print("Cleanup complete — visualizer window is still open.")
+    gui_process.terminate()
+    gui_process.join()
 
 csv_file_path_in_sink = 'Optical_Flow_tinycmax/data/input_events_sink.csv'
 
 
-with open(csv_file_path_in_sink, mode='a', newline='') as csv_file:
-        csv_writer = csv.writer(csv_file)
-        if csv_file.tell() == 0:
-            print("Writing header once...")
-            csv_writer.writerow(['layer','x', 'y', 't', 'p'])
+# with open(csv_file_path_in_sink, mode='a', newline='') as csv_file:
+#         csv_writer = csv.writer(csv_file)
+#         if csv_file.tell() == 0:
+#             print("Writing header once...")
+#             csv_writer.writerow(['layer','x', 'y', 't', 'p'])
 
-with open(csv_file_path_in_sink, mode='a', newline='') as csv_file:
-            csv_writer = csv.writer(csv_file)
+# with open(csv_file_path_in_sink, mode='a', newline='') as csv_file:
+#             csv_writer = csv.writer(csv_file)
 
-            # Process events
-            for event in ps:
+#             # Process events
+#             for event in ps:
 
-                csv_writer.writerow([int(event.layer), int(event.x), int(event.y), int(event.timestamp), int(event.feature)])
+#                 csv_writer.writerow([int(event.layer), int(event.x), int(event.y), int(event.timestamp), int(event.feature)])
 
 print("input events done!")
 
 
 import pickle
 
-with open('Optical_Flow_tinycmax/data/collection2_32minGRU.npy', 'wb') as f:
-    pickle.dump(collection2, f)
+# with open('Optical_Flow_tinycmax/data/collection2_32minGRU.npy', 'wb') as f:
+#     pickle.dump(collection2, f)
 
 print("collection done!")
