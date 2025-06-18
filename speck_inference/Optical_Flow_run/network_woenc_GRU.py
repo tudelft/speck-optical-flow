@@ -33,14 +33,24 @@ class FlowNetwork(nn.Module):
             decoder_channels, activation_fn, final_bias, padding_mode=padding_mode, mode=self.mode
         )
 
-    def forward(self, input, hidden=None):
-        frame = input["events"]  # .events incompatible with torch.compile?
+    # def forward(self, input, hidden=None):
+    #     frame = input["events"]  # .events incompatible with torch.compile?
+    #     memory = self.memory(frame, hidden)
+    #     flow_map = self.decoder(memory)
+
+    #     flow_map *= self.scaling
+
+    #     return dict(flow=flow_map), memory
+
+    def forward(self, events, hidden=None):
+        #frame = input["events"]  # .events incompatible with torch.compile?
+        frame = events
         memory = self.memory(frame, hidden)
-        # flow_map = self.decoder(memory)
+        flow_map = self.decoder(memory)
 
-        # flow_map *= self.scaling
+        flow_map *= self.scaling
 
-        return memory, memory #dict(flow=flow_map), memory
+        return dict(flow=flow_map), memory
 
 
 class WrappedFlowNetwork(NetworkWrapper, FlowNetwork):
