@@ -181,6 +181,30 @@ def inference_loop(sink: samna.graph.Sink):
 def open_speck2e():
     return samna.device.open_device("Speck2eDevKit:0")
 
+def build_samna_event_route(graph, dk):
+    # build a graph in samna to show dvs
+    _, _, streamer = graph.sequential(
+        [dk.get_model_source_node(), "Speck2eDvsToVizConverter", "VizEventStreamer"]
+    )
+
+    streamer.set_streamer_endpoint("tcp://0.0.0.0:40000")
+    if streamer.wait_for_receiver_count() == 0:
+        raise Exception(f'connecting to visualizer on {"tcp://0.0.0.0:40000"} fails')
+
+    return streamer
+
+def configure_visualizer(graph, streamer):
+    config_source, _ = graph.sequential([samna.BasicSourceNode_ui_event(), streamer])
+    #graph.start()
+    
+    visualizer_config = samna.ui.VisualizerConfiguration(
+        # add plots to gui
+        plots=[
+            # add plot to show pixels
+            samna.ui.ActivityPlotConfiguration(128, 128, "DVS Layer", [0, 0, 1.0, 1.0]),]
+            )
+    return config_source, visualizer_config
+
 
 def open_visualizer(endpoint="tcp://0.0.0.0:40000", w=0.75, h=0.75):
     proc = Process(target=samnagui.run_visualizer, args=(endpoint, w, h))
@@ -199,14 +223,17 @@ def main():
     # 2) Open dev‑kit and sink node
     dk = open_speck2e()
     graph = samna.graph.EventFilterGraph()
-
+    streamer = build_samna_event_route(graph, dk)
     # DVS raw‑monitor enable
     cfg = samna.speck2e.configuration.SpeckConfiguration()
     cfg.dvs_layer.raw_monitor_enable = True
     dk.get_model().apply_configuration(cfg)
 
-    sink = samna.graph.sink_from(dk.get_model_source_node())
+    model_source = dk.get_model_source_node()
+    config_source, visualizer_config = configure_visualizer(graph, streamer)
+    config_source.write([visualizer_config])
 
+    sink = samna.graph.sink_from(model_source)
     graph.start()
 
     # 3) Start inference thread
