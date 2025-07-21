@@ -2,18 +2,14 @@
 """
 Real‑time Speck‑2e DVS → ANN optical‑flow inference
 --------------------------------------------------
-* Pulls raw address‑events from a Speck‑2e dev‑kit.
-* Rasterises to a 2‑channel (polarity) 128×128 frame.
-* Runs an **ONNX** optical‑flow decoder (events + hidden → flow + new_hidden).
-* Computes quadrant‑level divergence and prints instant/average latency.
-* Optionally shows a GUI via *jetson‑stats* Visualizer on `tcp://0.0.0.0:40000`.
+Fix 2025‑07‑21:
+    * **ChipFactory.events_to_raster_fast** expects a four‑dimensional
+      output tensor indexed as  [0, fs, ys, xs].  Therefore the raster shape
+      must be **(1, 2, 128, 128)** – *batch/time*, *polarity*, *H*, *W* – not
+      the previous (2, 128, 128).
+    * Removed the extra *unsqueeze(0)* after rasterisation.
 
-Tested with:
-  • speck2edevkit firmware ≥2.2
-  • samna ≥ 0.10, samnagui ≥ 0.10
-  • onnxruntime ≥ 1.17 (CPU EP)
-
-Edit the paths to your model/checkpoint as needed.
+Everything else (ONNX I/O, divergence math, visualiser) is unchanged.
 """
 from __future__ import annotations
 
@@ -36,14 +32,14 @@ from sinabs.backend.dynapcnn.chip_factory import ChipFactory
 # ───────────────────────────────────────────────────────────────
 MODEL_ONNX = Path("Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1_ANN.onnx")
 HIDDEN_SHAPE = (1, 32, 16, 16)          # (B,C,H,W) – must match ONNX output
-RASTER_SHAPE = (2, 128, 128)            # (polarity,H,W)
+RASTER_SHAPE = (1, 2, 128, 128)         # **fixed** (batch,polarity,H,W)
 DVS_DT_MS = 10                           # How often to pull events (ms)
 VISUALIZER = True                        # Set False to disable GUI
 
 os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
 # ───────────────────────────────────────────────────────────────
-#  Divergence helpers (re‑use from Divergence Quadrant)
+#  Divergence helpers  (unchanged)
 # ───────────────────────────────────────────────────────────────
 
 def divergence_ratio(D_pix: float, D_tip: float, eps: float = 1e-6) -> float:
@@ -72,10 +68,10 @@ def quadrant_means(flow: torch.Tensor):
     _, H, W = flow.shape
     mid_x, mid_y = W // 2, H // 2
     quads = [
-        (slice(0, mid_y), slice(0, mid_x)),        # TL
-        (slice(0, mid_y), slice(mid_x, W)),        # TR
-        (slice(mid_y, H), slice(mid_x, W)),        # BR
-        (slice(mid_y, H), slice(0, mid_x)),        # BL
+        (slice(0, mid_y), slice(0, mid_x)),
+        (slice(0, mid_y), slice(mid_x, W)),
+        (slice(mid_y, H), slice(mid_x, W)),
+        (slice(mid_y, H), slice(0, mid_x)),
     ]
     centres = [
         (W // 4, H // 4),
@@ -90,7 +86,6 @@ def quadrant_means(flow: torch.Tensor):
         vecs.append((u, v))
     return centres, vecs
 
-# neighbour list (clockwise wrap‑around)
 PAIRS = [(0, 1), (1, 2), (2, 3), (3, 0)]
 
 # ───────────────────────────────────────────────────────────────
@@ -101,34 +96,59 @@ divergence_history: List[float] = []
 latency_history: List[float] = []
 
 
+def events_to_raster_fast(events, shape: Tuple[int, int, int] = (2, 128, 128)) -> torch.Tensor:
+    """Vectorised, *batch‑aware* rasteriser for Speck‑2e DVS events.
+
+    Args
+    ----
+    events : iterable of samna Speck2eDvsEvent
+        The raw polarity events.
+    shape  : (C, H, W)
+        Desired per‑batch raster shape (*without* the batch axis).  `C` must
+        match the number of polarity channels you want (default 2).
+
+    Returns
+    -------
+    torch.Tensor
+        Tensor with shape **(1, C, H, W)** – leading dim reserved for future
+        batching but always 1 here.
+    """
+    C, H, W = shape
+    raster_np = np.zeros((C, H, W), dtype=np.float32)
+
+    if events:
+        p   = np.fromiter((e.p for e in events), dtype=np.int16)
+        xs  = np.fromiter((e.x for e in events), dtype=np.int16)
+        ys  = np.fromiter((e.y for e in events), dtype=np.int16)
+
+        # Keep only events that fall inside our raster cube
+        mask = (p >= 0) & (p < C) & (xs >= 0) & (xs < W) & (ys >= 0) & (ys < H)
+        if mask.any():
+            np.add.at(raster_np, (p[mask], ys[mask], xs[mask]), 1.0)
+
+    return torch.from_numpy(raster_np).unsqueeze(0)  # (1,C,H,W)
+
+
 def inference_loop(sink: samna.graph.Sink):
-    """Blocking loop: pull events → raster → ONNX → divergence."""
     print("[inference] thread started")
     ort_session = ort.InferenceSession(str(MODEL_ONNX), providers=["CPUExecutionProvider"])
-
     hidden = torch.zeros(*HIDDEN_SHAPE, dtype=torch.float32)
 
     while True:
-        # 1) fetch events (blocking up to DVS_DT_MS ms)
         events = sink.get_events_blocking(DVS_DT_MS)
         t0 = time.time()
-        if events:
-            print(events)
-            raster = ChipFactory.events_to_raster_fast(events=events, shape=RASTER_SHAPE)
-        else:
-            raster = torch.zeros(RASTER_SHAPE, dtype=torch.float32)
-        raster = raster.unsqueeze(0)                  # add batch
 
-        # 2) ONNX forward
+        raster = events_to_raster_fast(events)   # (1,2,128,128)
+
         ort_inputs = {
-            "events": raster.numpy(),
-            "hidden": hidden.numpy(),
+            "events": raster.numpy().astype(np.float32),
+            "hidden": hidden.numpy().astype(np.float32),
         }
         flow_np, hidden_np = ort_session.run(None, ort_inputs)
         hidden = torch.from_numpy(hidden_np)
-        flow = torch.from_numpy(flow_np.squeeze(0))   # (2,H,W)
+        flow = torch.from_numpy(flow_np.squeeze(0))           # (2,H,W)
 
-        # 3) Divergence
+        # Divergence (unchanged)
         centres, vecs = quadrant_means(flow)
         if are_vectors_similar(vecs):
             div = 0.0
@@ -145,15 +165,13 @@ def inference_loop(sink: samna.graph.Sink):
             div = float(np.mean(ratios))
         divergence_history.append(div)
 
-        # 4) latency stats
-        t1 = time.time()
-        latency = t1 - t0
+        # latency
+        latency = time.time() - t0
         latency_history.append(latency)
         inst_rate = 1 / latency
-        avg_lat = sum(latency_history) / len(latency_history)
-        avg_rate = 1 / avg_lat
-
+        avg_rate = 1 / (sum(latency_history) / len(latency_history))
         print(f"[inference] Divergence {div:+.4f} | Inst {inst_rate:5.1f} Hz | Avg {avg_rate:5.1f} Hz")
+
 
 
 # ───────────────────────────────────────────────────────────────

@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
-import network                               # your module
+import network                    # <- your module with FlowNetwork
+                                  #    and WrappedFlowNetwork
 
-# 1. Build the original core model
-core = network.WrappedFlowNetwork(
+# ── instantiate ───────────────────────────────────────────────
+model_pt = network.WrappedFlowNetwork(
     encoder_channels=32,
     memory_channels=32,
     decoder_channels=32,
@@ -13,48 +14,48 @@ core = network.WrappedFlowNetwork(
     scaling=32,
 )
 
-# 2. Load checkpoint (strip the 'network.' prefix)
-state = torch.load(
-    "Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1_model.pt",
-    map_location="cpu",
-)
-core.load_state_dict({k.replace("network.", ""): v for k, v in state.items()})
-core.eval()
+# ---- load checkpoint ----
+ckpt = torch.load("Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1_model.pt", map_location="cpu")
+# strip “network.” prefix if present
+ckpt = {k.replace("network.", ""): v for k, v in ckpt.items()}
+missing, unexpected = model_pt.load_state_dict(ckpt, strict=False)
+assert not missing and not unexpected, (missing, unexpected)
 
-# 3. **Thin wrapper**: converts 2‑tensor input → dict the core expects
+model_pt.eval()
+
 class ONNXFlowWrapper(nn.Module):
-    def __init__(self, core_model):
+    def __init__(self, core):
         super().__init__()
-        self.core = core_model
+        self.core = core
 
     def forward(self, events, hidden):
-        return self.core({"events": events}, hidden)
+        # core still gets the dict it expects
+        flow_dict, new_hidden = self.core({"events": events}, hidden)
+        # unwrap to plain tensors for ONNX outputs
+        return flow_dict["flow"], new_hidden
 
-wrapper = ONNXFlowWrapper(core).cpu()      # or .to(device)
+wrapper = ONNXFlowWrapper(model_pt).cpu()
 
-# 4. Dummy inputs
-B, C, H, W = 1, 32, 16, 16          # hidden shape
-dummy_events = torch.randn(B, 2, 128, 128)
-dummy_hidden = torch.zeros(B, C, H, W)
+B, H, W = 1, 128, 128
+C_mem = 32         # must match memory_channels
+dummy_events = torch.randn(B, 2, H, W)
+dummy_hidden = torch.zeros(B, C_mem, H//8, W//8)   # after 3× stride‑2 encoder
 
-# **Test once in eager mode**
-flow_out, new_hidden = wrapper(dummy_events, dummy_hidden)
-#print(flow_out.shape, new_hidden.shape)    # should be (1,2,128,128) and (1,32,16,16)
+flow_out, new_hid = wrapper(dummy_events, dummy_hidden)
+print(flow_out.shape, new_hid.shape)   # → (1, 2, 128, 128) (1, 32, 16, 16)
 
-# 5. Export → ONNX
 torch.onnx.export(
     wrapper,
-    (dummy_events, dummy_hidden),           # ← still two tensors
-    "Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1_ANN.onnx",
+    (dummy_events, dummy_hidden),               # positional args
+    "qs95vlk2_minGRU_depth1_ANN.onnx",
     input_names=["events", "hidden"],
     output_names=["flow", "new_hidden"],
     dynamic_axes={
         "events": {0: "batch", 2: "height", 3: "width"},
-        "hidden": {0: "batch", 2: "height", 3: "width"},
-        "flow": {0: "batch", 2: "height", 3: "width"},
-        "new_hidden": {0: "batch", 2: "height", 3: "width"},
+        "hidden": {0: "batch", 2: "h16",    3: "w16"},
+        "flow":   {0: "batch", 2: "height", 3: "width"},
+        "new_hidden": {0: "batch", 2: "h16", 3: "w16"},
     },
     opset_version=13,
 )
-
-print("ONNX export complete.")
+print("ONNX export complete → flow_minGRU.onnx")
