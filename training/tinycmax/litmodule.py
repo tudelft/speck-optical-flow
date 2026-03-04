@@ -1,7 +1,6 @@
 from dotmap import DotMap
 from lightning import LightningModule
 import torch
-
 from tinycmax.network_utils import recursive_clone
 
 
@@ -75,10 +74,12 @@ class Train(LightningModule):
         for i, (frame, eof) in enumerate(zip(frames, eofs)):
             # get input, auxiliary, target
             # TODO: slice all into dotmaps in collate, then feed batch everywhere
+
             input = DotMap(events=frame, _dynamic=False)
             aux = DotMap({k: v[i] for k, v in auxs.items()}, _dynamic=False)
             target = DotMap({k: v[i] for k, v in targets.items()}, _dynamic=False)
 
+            # -----------------------------------------------------------
             # forward network
             pred = self.compiled_network(input)
             if stage == "validate":
@@ -112,7 +113,7 @@ class Train(LightningModule):
                     dloss = loss_fn.backward()
                     loss += dloss if dloss is not None else 0
 
-                    # reset loss and log
+                    #  loss and log
                     # loss per tbptt window per batch sample
                     # default batch size (seq_len) gives same value but rounding errors
                     for name, value in loss_fn.compute_and_reset().items():
@@ -122,12 +123,12 @@ class Train(LightningModule):
                             self.log(f"{stage}/{name}/{batch.recording}", value, batch_size=1)
                             self.log(f"{stage}/{name}/mean", value, batch_size=1)
                         if self.visualizing:
-                            log[i][name] = value.item()
+                            log[i][name] = value.item() if isinstance(value, torch.Tensor) else value
 
             # training: backprop and optimize
             if stage == "train" and loss:
                 optimizer.zero_grad()
-                self.manual_backward(loss)
+                self.manual_backward(loss)  # added retain graph for snn, lets see
                 self.clip_gradients(optimizer, gradient_clip_val=self.gradient_clip_val)
                 optimizer.step()
 

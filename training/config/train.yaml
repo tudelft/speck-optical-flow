@@ -1,5 +1,6 @@
 defaults:
   - datamodule: uzh_fpv
+  #- datamodule: speck
   - litmodule: train
   - network: flow
   - loss_fns@loss_fns.train:

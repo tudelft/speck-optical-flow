@@ -1,9 +1,10 @@
 defaults:
+  - datamodule: uzh_fpv
   - hydra: no_logging
   - _self_
 
 wandb:
-  entity: Huizerd
+  entity: manusingh-tu-delft
   project: tinycmax
 
 stage: validate

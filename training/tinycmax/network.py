@@ -1,6 +1,5 @@
 import torch.nn as nn
-
-from tinycmax.blocks import conv_encoder, LazyConvGru, upsample_decoder
+from tinycmax.blocks import conv_encoder, LazyConvGru, LazyConvMinGru, upsample_decoder
 from tinycmax.network_utils import NetworkWrapper
 
 
@@ -26,19 +25,17 @@ class FlowNetwork(nn.Module):
         self.scaling = scaling
 
         self.encoder = conv_encoder(encoder_channels, activation_fn, padding_mode=padding_mode)
-        self.memory = LazyConvGru(memory_channels, 3, padding_mode=padding_mode)
+        self.memory = LazyConvMinGru(memory_channels, 3, padding_mode=padding_mode)
         self.decoder = upsample_decoder(
             decoder_channels, activation_fn, final_bias, padding_mode=padding_mode, mode=self.mode
         )
 
     def forward(self, input, hidden=None):
-        frame = input["events"]  # .events incompatible with torch.compile?
+        frame = input["events"]
         encoder = self.encoder(frame)
         memory = self.memory(encoder, hidden)
         flow_map = self.decoder(memory)
-
-        flow_map *= self.scaling
-
+        flow_map = self.scaling * flow_map
         return dict(flow=flow_map), memory
 
 

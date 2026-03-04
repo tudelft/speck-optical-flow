@@ -74,4 +74,4 @@ class NetworkWrapper(nn.Module):
         return self.state
 
     def set_state(self, state):
-        self.state = state  # TODO: why does clone here not work?
+        self.state = state

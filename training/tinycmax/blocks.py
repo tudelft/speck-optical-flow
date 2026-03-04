@@ -4,6 +4,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from sinabs.layers import Merge, IAFSqueeze
+from sinabs.activation.surrogate_gradient_fn import SingleExponential
+import sinabs.layers as sl
+
 
 class LazyConvGru(nn.Module):
     """
@@ -63,6 +67,33 @@ class LazyConvMinGru(nn.Module):
         return hx
 
 
+class MemLayers(nn.Module):
+    """
+    Memory layers for direct implementation on speck.
+    """
+
+    def __init__(self, out_channels, padding_mode="zeros"):
+        super().__init__()
+        self.l3 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False, padding_mode=padding_mode)
+        self.l4 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False, padding_mode=padding_mode)
+
+        self.relu = nn.ReLU()
+
+    def forward(self, x, prev_state):
+        # Previous outputs (initialized as zeros if not yet defined)
+        prev_x4 = prev_state
+        if prev_x4 is None:
+            prev_x4 = torch.zeros_like(x)
+
+        x3_input = x + prev_x4
+        x3 = self.relu(self.l3(x3_input))
+
+        x4_input = x3
+        x4 = self.relu(self.l4(x4_input))
+
+        return x4
+
+
 class Residual(nn.Sequential):
     """
     Residual block with connection from input to after.
@@ -91,11 +122,13 @@ def feedforward(synapse, neuron):
 
 def named_sequential(prefix, *args):
     modules = OrderedDict([(f"{prefix}{i}", arg) for i, arg in enumerate(args)])
+    print("modules: ", modules)
     return nn.Sequential(modules)
 
 
 def named_residual(prefix, *args):
     modules = OrderedDict([(f"{prefix}{i}", arg) for i, arg in enumerate(args)])
+    print("res modules: ", modules)
     return Residual(modules)
 
 
@@ -104,22 +137,22 @@ def res_block(out_channels, kernel_size, activation_fn, stride=1, padding_mode="
     if stride != 1:
         downsample = feedforward(
             nn.LazyConv2d(out_channels, kernel_size, stride=stride, padding=padding, padding_mode=padding_mode),
-            nn.Identity(),
+            activation_fn(),
         )
     else:
         downsample = nn.Identity()
     block = named_residual(
         "res",
         feedforward(
-            nn.LazyConv2d(out_channels, kernel_size, stride=stride, padding=padding, padding_mode=padding_mode),
+            nn.LazyConv2d(out_channels // 2, kernel_size, stride=stride, padding=padding, padding_mode=padding_mode),
             activation_fn(),
         ),
-        feedforward(
-            nn.LazyConv2d(out_channels, kernel_size, padding=padding, padding_mode=padding_mode),
-            nn.Identity(),
+        feedforward(  # adding stride as well after changing output channels
+            nn.LazyConv2d(out_channels // 2, kernel_size, stride=stride, padding=padding, padding_mode=padding_mode),
+            activation_fn(),
         ),
         downsample,
-        activation_fn(),
+        # activation_fn(),
     )
     return block
 
@@ -149,7 +182,7 @@ def conv_encoder(out_channels, activation_fn, padding_mode="zeros"):
     Components:
     - Padding to size divisible by 8
     - Head with large kernel
-    - 2 pairs of residual blocks with stride
+    - Two strided conv layers for downsampling
     """
     padder = LazyPadder(8)
     head = feedforward(
@@ -158,8 +191,14 @@ def conv_encoder(out_channels, activation_fn, padding_mode="zeros"):
     )
     encoder = named_sequential(
         "conv",
-        res_block(out_channels // 2, 3, activation_fn, stride=2, padding_mode=padding_mode),
-        res_block(out_channels, 3, activation_fn, stride=2, padding_mode=padding_mode),
+        feedforward(
+            nn.LazyConv2d(out_channels // 2, 3, stride=2, padding=1, padding_mode=padding_mode),
+            activation_fn(),
+        ),
+        feedforward(
+            nn.LazyConv2d(out_channels, 3, stride=2, padding=1, padding_mode=padding_mode),
+            activation_fn(),
+        ),
     )
     return named_sequential("enc", padder, head, encoder)
 

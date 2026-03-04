@@ -39,8 +39,10 @@ class ContrastMaximization(nn.Module):
         self.buffer = DotMap()
 
     def forward(self, pred, aux, target):
-        self.buffer.aux += [aux]
-        self.buffer.flow_maps += [pred["flow"]]
+        # self.buffer.aux += [aux]
+        # self.buffer.flow_maps += [pred["flow"]]
+        self.buffer.aux = self.buffer.aux + [aux]
+        self.buffer.flow_maps = self.buffer.flow_maps + [pred["flow"]]
         self.passes += 1
 
     def prepare_backward(self):
@@ -56,6 +58,7 @@ class ContrastMaximization(nn.Module):
         return events, flow_maps
 
     def compute_cmax_loss(self, events, flow_maps):
+        # print(flow_maps.shape)
         # warp events: (b, n, 5) -> (b, n, d + 1, 5) with (x, y, t, t_orig, p)
         warped_events = self.warp_fn(events, flow_maps)
 

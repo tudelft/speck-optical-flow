@@ -1,8 +1,8 @@
 _target_: tinycmax.uzh_fpv.UzhFpvDataModule
 root_dir: data/uzh_fpv
-time_window: 10000  # us
+time_window: 10000 # 10000  # us
 count_window: null  # mutually exclusive with time_window
-train_seq_len: 100
+train_seq_len: 100 # 100
 train_crop: [128, 128]  # hw for random, tlbr or null for fixed
 train_recordings:
   - [indoor_forward_3_davis_with_gt, [30e6, 82e6]]
@@ -13,12 +13,41 @@ train_recordings:
   - [indoor_forward_9_davis_with_gt, [30e6, 77e6]]
   - [indoor_forward_10_davis_with_gt, [30e6, 73e6]]
   - [indoor_forward_12_davis, [20e6, 50e6]]
-val_crop: [2, 1, 258, 345]  # gives centered (256, 344)
+## speck dataset:
+  # - [events_multi1, null]
+  # - [events_multi2, null]
+  # - [events_multi6, null]
+  # - [events_multi7, [0.5e6, 7e6]]
+  # - [events_record1, [1e6, 18e6]]
+  # - [events_record2, [2e6, 15e6]]
+  # - [events_record3, [2.5e6, 15e6]]
+  # - [events_record4, [2.5e6, 10e6]]
+  # - [events_record5, [2e6, 14e6]]
+  # - [events_record6, null]
+  # - [events_record7, null]
+  # - [events_record9, null]
+  # - [events_record10, null]
+  # - [events_depth1, null]
+  # - [events_depth2, null]
+  # - [events_depth3, null]
+  # - [events_depth4, null]
+  # - [events_depth5, null]
+  # - [events_depth6, null]
+
+  
+  
+val_crop:  [128, 128]  #[2, 1, 258, 345]   # gives centered (256, 344) : [2, 1, 258, 345] 
 val_recordings:
   - [indoor_forward_11_davis, [30e6, 81e6]]
+  - [events_hand, [0e6, 27e6]] #[0e6, 27e6]
+  - [events_depth, null]
+
 rectify: false
 augmentations: [flip_t, flip_pol, flip_ud, flip_lr]
 batch_size: 8
 shuffle: true
 num_workers: 8
 download: false  # don't check downloads
+
+#batch_size 4 = ran for 22 epochs then ran out of memory, gpi8yuk4
+#batch_size 2, and reduce the dataset.

@@ -1,8 +1,8 @@
 _target_: tinycmax.network.WrappedFlowNetwork
 _convert_: object
-encoder_channels: 64
-memory_channels: 64
-decoder_channels: 64
+encoder_channels: 32
+memory_channels: 32
+decoder_channels: 32
 activation_fn:
   _target_: torch.nn.ReLU  # TODO: ELU?
   _partial_: true

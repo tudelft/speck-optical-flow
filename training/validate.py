@@ -37,6 +37,11 @@ def main(overrides):
     litmodule.eval()
     litmodule.freeze()
 
+    # #Save model parameters
+    # save_path = Path("model.pt")
+    # torch.save(litmodule.state_dict(), save_path)
+    # print(f"Model parameters saved to {save_path}")
+
     # callbacks
     callbacks = instantiate(config.callbacks)
     callbacks.pop("checkpoint")

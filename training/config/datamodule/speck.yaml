@@ -1,0 +1,34 @@
+_target_: tinycmax.uzh_fpv.UzhFpvDataModule
+# root_dir: data/uzh_fpv
+root_dir: data/speck
+time_window: 10000  # us
+count_window: null  # mutually exclusive with time_window
+train_seq_len: 100
+train_crop: null  # hw for random, tlbr or null for fixed
+train_recordings:
+  - [events_multi1, null]
+  - [events_multi2, null]
+  - [events_multi3, null]
+  - [events_multi4, null]
+  - [events_multi5, null]
+  - [events_multi6, null]
+  - [events_multi7, null]
+  - [events_multi8, null]
+  - [events_multi9, null]
+  - [events_simple1, null]
+  - [events_simple2, null]
+  - [events_simple3, null]
+  - [events_simple4, null]
+  - [events_simple5, null]
+  - [events_simple6, null]
+val_crop: null  
+val_recordings:
+  - [events_multi10, null]
+  - [events_simple1, null]
+
+rectify: false
+augmentations: [flip_t, flip_pol, flip_ud, flip_lr]
+batch_size: 8
+shuffle: true
+num_workers: 8
+download: false  # don't check downloads
