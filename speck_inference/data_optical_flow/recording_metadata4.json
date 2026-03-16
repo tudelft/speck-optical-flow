@@ -1,0 +1,7 @@
+{
+  "t_start_wallclock": 1773681815.2668602,
+  "t_start_iso": "2026-03-16T18:23:35",
+  "note": "DVS event timestamps are hardware ticks from stopWatch.start(). Use t_start_wallclock to align with OptiTrack: absolute_time = t_start_wallclock + dvs_tick * tick_duration_seconds",
+  "tick_duration_seconds": 2.1694693253055842e-06,
+  "t_end_wallclock": 1773681853.175601
+}
