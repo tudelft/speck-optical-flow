@@ -10,8 +10,8 @@ import time
 import os
 
 class EventCollection:
-    def __init__(self, buffer_size=10000, flush_interval=0.02):
-        self.img_folder = "/home/manu/Desktop/SPECK/Visualization/data_optical_flow"
+    def __init__(self, buffer_size=10000, flush_interval=0.01):
+        self.img_folder = "/home/manu-singh/Speck_Optical_Flow/data_optical_flow"
         os.makedirs(self.img_folder, exist_ok=True)
 
         self.event_queue = queue.Queue(maxsize=buffer_size)
@@ -26,19 +26,19 @@ class EventCollection:
 
         atexit.register(self.stop)
 
-    def open_speck2e(self):
-        return samna.device.open_device("Speck2eDevKit:0")
+    def open_speck2f(self):
+        return samna.device.open_device("Speck2fDevKit:0")
 
     def build_samna_event_route(self, dk, dvs_graph, streamer_endpoint):
         _, _, streamer = dvs_graph.sequential(
-            [dk.get_model_source_node(), "Speck2eDvsToVizConverter", "VizEventStreamer"]
+            [dk.get_model_source_node(), "Speck2fDvsToVizConverter", "VizEventStreamer"]
         )
 
         config_source, _ = dvs_graph.sequential(
             [samna.BasicSourceNode_ui_event(), streamer]
         )
 
-        streamer.set_streamer_destination(streamer_endpoint)
+        streamer.set_streamer_endpoint(streamer_endpoint)
         if streamer.wait_for_receiver_count() == 0:
             raise Exception(f"Connecting to visualizer on {streamer_endpoint} failed")
 
@@ -53,44 +53,40 @@ class EventCollection:
         return gui_process
 
     def event_collector(self, gui_process, sink):
-        """Collects events and stores them in a buffer for later writing."""
-
-        # start_time = time.time()
-        # event_counter = 0
-
+        """Collects events and stops automatically if event rate drops too low."""
         last_check_time = time.time()
         event_counter = 0
 
-        while self.running: #gui_process.is_alive() and 
+        while self.running:
             events_batch = sink.get_events()
             if events_batch:
                 for event in events_batch:
                     if event.feature in (0, 1):
-                        self.event_queue.put([int(event.x), int(event.y), int(event.timestamp), int(event.feature)])
-                        event_counter += 1
+                        try:
+                            self.event_queue.put_nowait(
+                                [int(event.x), int(event.y), int(event.timestamp), int(event.feature)]
+                            )
+                            event_counter += 1
+                        except queue.Full:
+                            # Buffer full: flush immediately then retry
+                            self.flush_event_queue()
+                            self.event_queue.put_nowait(
+                                [int(event.x), int(event.y), int(event.timestamp), int(event.feature)]
+                            )
+                            event_counter += 1
 
             current_time = time.time()
 
-            print(f"[DEBUG] Time since last check: {current_time - last_check_time:.2f}s, Event count: {event_counter}")
-
             if current_time - last_check_time >= self.min_event_wait:
+                print(f"[DEBUG] {event_counter} events in last {self.min_event_wait}s")
                 if event_counter < self.min_event_threshold:
-                    print(f"Stopping: Only {event_counter} events received in last {self.min_event_wait} seconds.")
+                    print(f"Stopping: only {event_counter} events received in last {self.min_event_wait}s.")
                     self.running = False
                     break
-                
-                else:
-                    # Reset counter and timer
-                    event_counter = 0
-                    last_check_time = current_time
+                event_counter = 0
+                last_check_time = current_time
 
-                print("Loop ended")  # this should NOT print if break works
-
-            if self.event_queue.qsize() >= self.buffer_size:
-                self.flush_event_queue()
-                self.clear_event_queue()
-
-            time.sleep(0.1)
+            time.sleep(0.01)
 
     def flush_event_queue(self):
         if self.event_queue.empty():
@@ -102,7 +98,7 @@ class EventCollection:
 
         events_to_flush.sort(key=lambda e: e[2])  # sort by timestamp
 
-        csv_file_path = f'{self.img_folder}/events_multi11.csv'
+        csv_file_path = f'{self.img_folder}/events_check.csv'
         write_header = not os.path.exists(csv_file_path) or os.path.getsize(csv_file_path) == 0
 
         with open(csv_file_path, mode='a', newline='') as csv_file:
@@ -113,10 +109,6 @@ class EventCollection:
 
         print(f"Flushed {len(events_to_flush)} events to CSV.")
 
-    def clear_event_queue(self):
-        while not self.event_queue.empty():
-            self.event_queue.get()
-
     def periodic_flush(self):
         while self.running:
             time.sleep(self.flush_interval)
@@ -124,16 +116,16 @@ class EventCollection:
                 self.flush_event_queue()
 
     def stop(self):
-        if not self.running:
-            return
-        print("Stopping collection and flushing remaining events...")
+        # Always do cleanup regardless of whether running was already False
         self.running = False
+        print("Stopping collection and flushing remaining events...")
 
         if self.flush_thread.is_alive():
             self.flush_thread.join(timeout=2)
             if self.flush_thread.is_alive():
-                print("Warning: Flushing thread did not exit in time.")
+                print("Warning: Flush thread did not exit in time.")
 
+        # Final flush — always runs, even when auto-stop triggered
         self.flush_event_queue()
 
     def start(self):
@@ -141,9 +133,9 @@ class EventCollection:
 
         gui_process = self.open_visualizer(streamer_endpoint, 1, 1)
 
-        dk = self.open_speck2e()
+        dk = self.open_speck2f()
         stopWatch = dk.get_stop_watch()
-        stopWatch.set_enable_value(True)
+        stopWatch.start()
 
         dk_io = dk.get_io_module()
         dk_io.set_slow_clk_rate(10)
@@ -159,7 +151,7 @@ class EventCollection:
         )
         config_source.write([visualizer_config])
 
-        config = samna.speck2e.configuration.SpeckConfiguration()
+        config = samna.speck2f.configuration.SpeckConfiguration()
         config.dvs_layer.monitor_enable = True
         config.dvs_filter.enable = True
         dk.get_model().apply_configuration(config)
@@ -170,10 +162,9 @@ class EventCollection:
         graph.start()
 
         try:
-            
             while collector_thread.is_alive():
                 collector_thread.join(timeout=0.5)
-            
+
             if gui_process.is_alive():
                 print("Terminating GUI process due to low events.")
                 gui_process.terminate()
@@ -183,7 +174,6 @@ class EventCollection:
             print("Interrupted by user.")
             self.running = False
 
-        self.running = False
         collector_thread.join(timeout=5)
         graph.stop()
         self.stop()
@@ -191,6 +181,6 @@ class EventCollection:
 
         print("Event collection stopped successfully.")
 
-# Run the fixed event collector
+# Run the event collector
 event_collector = EventCollection()
 event_collector.start()

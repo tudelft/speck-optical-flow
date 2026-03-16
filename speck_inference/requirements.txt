@@ -1,0 +1,23 @@
+# CPU-only PyTorch (no GPU)
+--index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+
+# Core dependencies
+numpy
+sinabs
+samna
+imageio
+opencv-python
+matplotlib
+onnxruntime
+pandas
+Pillow
+dotmap
+h5py
+hdf5plugin
+lightning
+rich
+PyYAML
+moviepy
+psutil

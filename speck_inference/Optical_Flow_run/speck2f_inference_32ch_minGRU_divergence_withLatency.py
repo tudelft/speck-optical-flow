@@ -25,16 +25,14 @@ import pickle
 import csv
 
 
-# checkpoint = torch.load("Optical_Flow_tinycmax/r8fc8pcd_16mingru_model.pt", map_location="cpu")
-#checkpoint = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cpu")
-checkpoint = torch.load("Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1_model.pt", map_location="cpu")
+checkpoint = torch.load("Optical_Flow_run/qs95vlk2_minGRU_depth1_model.pt", map_location="cpu")
 print("Checkpoint Keys:", checkpoint.keys())
 
 #---------------Making model ready--------------------------------------------
 
 # onnx model check 
 #onnx_session = ort.InferenceSession("Optical_Flow_tinycmax/mem_decoder_network.onnx", providers=["CPUExecutionProvider"])
-onnx_session = ort.InferenceSession("Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1.onnx", providers=["CPUExecutionProvider"])
+onnx_session = ort.InferenceSession("Optical_Flow_run/qs95vlk2_minGRU_depth1.onnx", providers=["CPUExecutionProvider"])
 #------------------------------------------------------------------
 
 ann = nn.Sequential(
@@ -203,8 +201,9 @@ latency_accumulator = []
 latency_history      = []   # seconds per frame
 avg_rate_history     = []   # running‑avg Hz
 event_count_history  = [] 
+stop_event = threading.Event()
 
-def inference():
+def inference(stop):
     global output_hidden_list
     global trajectory
     global divergence_history, quadrant_pairs
@@ -277,10 +276,10 @@ def inference():
         return flow_image
     
     
-    while True:
+    while not stop.is_set():
 
         data = get_latest_collection1()
-        print(len(data))
+        #print(len(data))
 
         if len(data) > 0:
             timestamps, events = zip(*data)
@@ -290,102 +289,102 @@ def inference():
             raster = ChipFactory.events_to_raster_fast(events=events,shape=(32,16,16))   # self=ChipFactory, dt = 0.01,     
             #raster = ((gaussian_smooth(raster)).unsqueeze(0))
  
-        else:
+        # else:
 
-            readout_time = time.time()
-            raster = torch.zeros(1, 32, 16, 16)
+        #     readout_time = time.time()
+        #     raster = torch.zeros(1, 32, 16, 16)
 
             
-        ####  Model Inference ##---------------------------------
-        output_hidden = output_hidden_list[-1]
+            ####  Model Inference ##---------------------------------
+            output_hidden = output_hidden_list[-1]
             #input_dict = {"events": raster}
             
-        # for onnx
-        events_np = raster.cpu().numpy()
+            # for onnx
+            events_np = raster.cpu().numpy()
 
-        if output_hidden is not None:
+            if output_hidden is not None:
                 hidden_np = output_hidden.cpu().numpy()
-        else:
+            else:
                 hidden_np = np.zeros_like(events_np)
 
-        onnx_inputs = {
+            onnx_inputs = {
                     "events": events_np,
                     "hidden": hidden_np
-        }
+            }
 
-        onnx_outputs = onnx_session.run(None, onnx_inputs)
-        flow_map_np = onnx_outputs[0].squeeze(0)
-        print(flow_map_np.shape)
-        new_hidden_np = onnx_outputs[1]
+            onnx_outputs = onnx_session.run(None, onnx_inputs)
+            flow_map_np = onnx_outputs[0].squeeze(0)
+            #print(flow_map_np.shape)
+            new_hidden_np = onnx_outputs[1]
 
-        flow_map = torch.tensor(flow_map_np)
-        output_hidden = torch.tensor(new_hidden_np)
+            flow_map = torch.tensor(flow_map_np)
+            output_hidden = torch.tensor(new_hidden_np)
 
-        centres, vectors = quadrant_means(flow_map)
+            centres, vectors = quadrant_means(flow_map)
 
-        # 3‑out‑of‑4 means almost parallel → zero divergence
-        if are_vectors_similar(vectors, deg_threshold=15.0, min_aligned=3):
-            divergence_val = 0.0
-        else:
-            ratios = []
-            for i, j in quadrant_pairs:
-                x1, y1 = centres[i]
-                x2, y2 = centres[j]
-                u1, v1 = vectors[i]
-                u2, v2 = vectors[j]
+            # 3‑out‑of‑4 means almost parallel → zero divergence
+            if are_vectors_similar(vectors, deg_threshold=15.0, min_aligned=3):
+                divergence_val = 0.0
+            else:
+                ratios = []
+                for i, j in quadrant_pairs:
+                    x1, y1 = centres[i]
+                    x2, y2 = centres[j]
+                    u1, v1 = vectors[i]
+                    u2, v2 = vectors[j]
 
-                D_pixels = np.hypot(x1 - x2, y1 - y2)
-                D_tips   = np.hypot((x1 + u1) - (x2 + u2),
+                    D_pixels = np.hypot(x1 - x2, y1 - y2)
+                    D_tips   = np.hypot((x1 + u1) - (x2 + u2),
                                 (y1 + v1) - (y2 + v2))
-                ratios.append(divergence_ratio(D_pixels, D_tips))
-            divergence_val = float(np.mean(ratios))
+                    ratios.append(divergence_ratio(D_pixels, D_tips))
+                divergence_val = float(np.mean(ratios))
 
-        divergence_history.append(divergence_val)
-        print(f"[inference] Divergence: {divergence_val:+.4f}")
+            divergence_history.append(divergence_val)
+            print(f"[inference] Divergence: {divergence_val:+.4f}")
 
         
-        trajectory.append(flow_map_np)
-        # print(div.mean(), u, v)
+            trajectory.append(flow_map_np)
+            # print(div.mean(), u, v)
         
 
-        # new_size = (600, 600)
+            new_size = (600, 600)
 
-        # flow_image = flow_map_to_image(flow_map_np, new_size=new_size)#flow_image
+            flow_image = flow_map_to_image(flow_map_np, new_size=new_size)#flow_image
 
-        # flow_map_resized = cv2.resize(flow_map_np.transpose(1, 2, 0), (600, 600))  # shape: (H, W, 2)
-        # flow_map_resized = flow_map_resized.transpose(2, 0, 1)  # shape: (2, H, W)
+            flow_map_resized = cv2.resize(flow_map_np.transpose(1, 2, 0), (600, 600))  # shape: (H, W, 2)
+            flow_map_resized = flow_map_resized.transpose(2, 0, 1)  # shape: (2, H, W)
 
-        # # Draw arrows
-        # flow_with_quiver = draw_quiver_on_flow_image(flow_map_resized, flow_image.copy(), step=20, scale=5)
+            # Draw arrows
+            flow_with_quiver = draw_quiver_on_flow_image(flow_map_resized, flow_image.copy(), step=20, scale=5)
         
 
-        # # # Show image
-        # cv2.imshow("Optical Flow", flow_image)
-        # cv2.imshow("Optical Flow", flow_with_quiver)
-        # cv2.putText(flow_with_quiver,
-        #     f"Divergence: {divergence_val:+.4f}",
-        #     (10, 25),         # x, y
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.7, (255, 255, 255), 2, cv2.LINE_AA)
-        # cv2.waitKey(1) 
+            # # Show image
+            cv2.imshow("Optical Flow", flow_image)
+            cv2.imshow("Optical Flow", flow_with_quiver)
+            cv2.putText(flow_with_quiver,
+                f"Divergence: {divergence_val:+.4f}",
+                (10, 25),         # x, y
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.waitKey(1) 
          
 
-        output_hidden_list.append(output_hidden)
+            output_hidden_list.append(output_hidden)
 
-        inference_end = time.time()
+            inference_end = time.time()
 
-        ### Total latency:
-        latency = inference_end - readout_time
-        event_count = len(events)
+            ### Total latency:
+            latency = inference_end - readout_time
+            event_count = len(events)
         
-        latency_history.append(latency)
-        event_count_history.append(event_count)
-        avg_hz = len(latency_history) / sum(latency_history)
-        avg_rate_history.append(avg_hz)
+            latency_history.append(latency)
+            event_count_history.append(event_count)
+            avg_hz = len(latency_history) / sum(latency_history)
+            avg_rate_history.append(avg_hz)
         
-        print(f"[inference] Div {divergence_val:+.4f} | "
-            f"Avg {avg_hz:6.1f} Hz | "
-            f"events {event_count:6d}")
+            print(f"[inference] Div {divergence_val:+.4f} | "
+                f"Avg {avg_hz:6.1f} Hz | "
+                f"events {event_count:6d}")
 
 
               
@@ -414,8 +413,8 @@ def configure_visualizer(graph, streamer):
                 )])
     return config_source, visualizer_config
 
-def open_speck2e():
-    return samna.device.open_device("Speck2eDevKit:0")
+def open_speck2f():
+    return samna.device.open_device("Speck2fDevKit:0")
 
 def open_visualizer(streamer_endpoint, window_width=0.75, window_height=0.75):
     gui_process = Process(
@@ -429,7 +428,7 @@ def open_visualizer(streamer_endpoint, window_width=0.75, window_height=0.75):
 def build_samna_event_route(graph, dk):
     # build a graph in samna to show dvs
     _, _, streamer = graph.sequential(
-        [dk.get_model_source_node(), "Speck2eDvsToVizConverter", "VizEventStreamer"]
+        [dk.get_model_source_node(), "Speck2fDvsToVizConverter", "VizEventStreamer"]
     )
 
     streamer.set_streamer_endpoint("tcp://0.0.0.0:40000")
@@ -438,7 +437,7 @@ def build_samna_event_route(graph, dk):
 
     return streamer
 
-devkit_name = "speck2edevkit:0"
+devkit_name = "speck2fdevkit:0"
 streamer_endpoint = "tcp://0.0.0.0:40000"
 
 
@@ -448,13 +447,15 @@ dynapcnn_net.to(device=devkit_name,monitor_layers=["dvs", -1],  # Last layer
 
 # here directly taking samna_config and later putting applying configuration
 config = dynapcnn_net.samna_config
-lyrs = dynapcnn_net.chip_layers_ordering[-1]
+# MS: dynapcnn_net.chip_layers_ordering[-1] — chip_layers_ordering is a dict in newer sinabs, not a list
+lyrs = list(dynapcnn_net.chip_layers_ordering.values())[-1]
 # print(lyrs)
 config.dvs_layer.monitor_enable = True
 config.cnn_layers[lyrs].monitor_enable = True
+config.dvs_layer.mirror.y = True  # correct lens natural y-inversion (up/down was flipped)
 
 
-dk = open_speck2e()
+dk = open_speck2f()
 dk.get_model().apply_configuration(config)
 
 
@@ -464,9 +465,9 @@ streamer = build_samna_event_route(graph, dk)
 (source ,readout_spike, spike_collection_filter, spike_count_filter,_) = graph.sequential(
                 [
                     dk.get_model_source_node(),
-                    "Speck2eOutputMemberSelect",
-                    "Speck2eSpikeCollectionNode",
-                    "Speck2eSpikeCountNode",
+                    "Speck2fOutputMemberSelect",
+                    "Speck2fSpikeCollectionNode",
+                    "Speck2fSpikeCountNode",
                     streamer,
                 ]
         )
@@ -475,7 +476,7 @@ spike_collection_filter.set_interval_milli_sec(10)
 readout_spike.set_white_list([lyrs], "layer")
 spike_count_filter.set_feature_count(feature_count)
 
-_, readout_filter, _ = graph.sequential([spike_collection_filter, "Speck2eCustomFilterNode", streamer])
+_, readout_filter, _ = graph.sequential([spike_collection_filter, "Speck2fCustomFilterNode", streamer])
 readout_filter.set_filter_function(custom_readout)
 
 #for getting output
@@ -497,7 +498,7 @@ config_source.write([visualizer_config])
 graph.start()
 
 # lets put here
-inference_thread = threading.Thread(target=inference, daemon=True)
+inference_thread = threading.Thread(target=inference, args=(stop_event,))
 inference_thread.start()
 
 #gui_process.join()
@@ -507,6 +508,7 @@ try:
         time.sleep(0.1)
 finally:
     # clean up everything else                   # signal the inference thread to quit
+    stop_event.set()
     inference_thread.join()       
     readout_filter.stop()                  # stop the Samna filters
     # ps = event_sink.get_events() 
@@ -518,23 +520,23 @@ finally:
 
     import matplotlib.pyplot as plt
 
-    if avg_rate_history:                         # avoid empty plot
-        fig, ax1 = plt.subplots()
-        ax1.plot(avg_rate_history,
-                color="tab:blue", label="avg Hz", linewidth=1)
-        ax1.set_xlabel("Frame index")
-        ax1.set_ylabel("Average Hz", color="tab:blue")
-        ax1.tick_params(axis="y", labelcolor="tab:blue")
+    # if avg_rate_history:                         # avoid empty plot
+    #     fig, ax1 = plt.subplots()
+    #     ax1.plot(avg_rate_history,
+    #             color="tab:blue", label="avg Hz", linewidth=1)
+    #     ax1.set_xlabel("Frame index")
+    #     ax1.set_ylabel("Average Hz", color="tab:blue")
+    #     ax1.tick_params(axis="y", labelcolor="tab:blue")
 
-        ax2 = ax1.twinx()
-        ax2.plot(event_count_history,
-                color="tab:red", label="#events", linewidth=1, alpha=0.6)
-        ax2.set_ylabel("Events per frame", color="tab:red")
-        ax2.tick_params(axis="y", labelcolor="tab:red")
+    #     ax2 = ax1.twinx()
+    #     ax2.plot(event_count_history,
+    #             color="tab:red", label="#events", linewidth=1, alpha=0.6)
+    #     ax2.set_ylabel("Events per frame", color="tab:red")
+    #     ax2.tick_params(axis="y", labelcolor="tab:red")
 
-        fig.suptitle("DynapCNN pipeline – rate vs events")
-        fig.tight_layout()
-        plt.savefig("dynapcnn_rate.png")
+    #     fig.suptitle("DynapCNN pipeline – rate vs events")
+    #     fig.tight_layout()
+    #     plt.savefig("dynapcnn_rate.png")
 # with open('Optical_Flow_tinycmax/data/flow_check/trajectory32_divergence14_7_2.npy', 'wb') as f:
 #     pickle.dump(trajectory, f)
 
