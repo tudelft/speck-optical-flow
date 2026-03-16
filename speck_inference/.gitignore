@@ -1,9 +1,11 @@
 # Virtual environment
 venv/
 
-# Data files
-data_optical_flow/
-*.csv
+# Data files (ignore large files but allow metadata JSON)
+data_optical_flow/*.csv
+data_optical_flow/frames/
+data_optical_flow/*.mp4
+data_optical_flow/*.avi
 
 # Video files
 *.mp4
