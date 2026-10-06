@@ -5,7 +5,7 @@ Code for the ICRA 2026 paper
 by Manupriya Singh, Dequan Ou, Jesse J. Hagenaars and Guido C. H. E. de Croon
 (Micro Air Vehicle Lab, TU Delft).
 
-[Paper (DOI)](https://doi.org/10.1109/ICRA57385.2026.11696264) · [Project page](https://mavlab.tudelft.nl/speck-optical-flow)
+[Paper (IEEE Xplore)](https://ieeexplore.ieee.org/document/11696264) · [Project page](https://mavlab.tudelft.nl/speck-optical-flow)
 
 ![Overview](docs/assets/fig1_overview.jpg)
 
