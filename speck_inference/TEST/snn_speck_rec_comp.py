@@ -1,5 +1,10 @@
 ### make patterned data in simple rasters.
 
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent.parent / "Optical_Flow_run"  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 import sinabs
 import torch
 import torch.nn as nn
@@ -55,7 +60,7 @@ def generate_hollow_rectangle_rasters_wrap(grid_size=16, rect_size=(6, 8), steps
 # Example usage: generate and combine for visualization
 hollow_rasters = generate_hollow_rectangle_rasters_wrap()
 
-with open('Optical_Flow_tinycmax/data/hollow_rasters.npy', 'wb') as f: # all layers normalised with scaling in first layer and lower mem first layer.
+with open(f'{DATA_DIR}/hollow_rasters.npy', 'wb') as f: # all layers normalised with scaling in first layer and lower mem first layer.
     pickle.dump(hollow_rasters, f)
 
 print(type(hollow_rasters))
@@ -174,7 +179,7 @@ delay_factor = 0
 #         output_list.append(torch.zeros((1, 2, 4, 4)))
 
 
-# with open('Optical_Flow_tinycmax/data/speck_rec_results4_4.npy', 'wb') as f: # all layers normalised with scaling in first layer and lower mem first layer.
+# with open(f'{DATA_DIR}/speck_rec_results4_4.npy', 'wb') as f: # all layers normalised with scaling in first layer and lower mem first layer.
 #     pickle.dump(output_list, f)
 
 #############################################################################
@@ -247,5 +252,5 @@ delay_factor = 0
 #         snn_output.append(out)
 
 
-# with open('Optical_Flow_tinycmax/data/snn_rec_results4_4.npy', 'wb') as f: # all layers normalised with scaling in first layer and lower mem first layer.
+# with open(f'{DATA_DIR}/snn_rec_results4_4.npy', 'wb') as f: # all layers normalised with scaling in first layer and lower mem first layer.
 #     pickle.dump(snn_output, f)

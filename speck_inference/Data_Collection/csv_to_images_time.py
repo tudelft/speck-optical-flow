@@ -1,3 +1,7 @@
+from pathlib import Path
+# Recordings go to speck_inference/data_optical_flow
+DATA_DIR = Path(__file__).resolve().parent.parent / "data_optical_flow"
+
 import pandas as pd
 import torch
 import imageio.v2 as imageio
@@ -5,9 +9,9 @@ import numpy as np
 import os
 from PIL import Image
 
-csv_path    = "/home/manu-singh/Speck_Optical_Flow/data_optical_flow/events_check4.csv"
-img_folder  = "/home/manu-singh/Speck_Optical_Flow/data_optical_flow/frames"
-output_video_path = "/home/manu-singh/Speck_Optical_Flow/data_optical_flow/events_video4.mp4"
+csv_path    = f"{DATA_DIR}/events_check4.csv"
+img_folder  = f"{DATA_DIR}/frames"
+output_video_path = f"{DATA_DIR}/events_video4.mp4"
 
 os.makedirs(img_folder, exist_ok=True)
 

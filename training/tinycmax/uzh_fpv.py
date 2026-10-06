@@ -272,6 +272,157 @@ class UzhFpvDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.download = download
 
+    def prepare_data(self):
+        # recordings
+        # now only indoor forward, but there's also 45deg and outdoor
+        # time in microseconds to skip parts with drone on the ground
+        recordings = [
+            ("indoor_forward_3_davis_with_gt", (30e6, 82e6)),
+            ("indoor_forward_5_davis_with_gt", (30e6, 140e6)),
+            ("indoor_forward_6_davis_with_gt", (30e6, 67e6)),
+            ("indoor_forward_7_davis_with_gt", (30e6, 105e6)),
+            ("indoor_forward_8_davis", (30e6, 157e6)),
+            ("indoor_forward_9_davis_with_gt", (30e6, 77e6)),
+            ("indoor_forward_10_davis_with_gt", (30e6, 73e6)),
+            ("indoor_forward_11_davis", (30e6, 81e6)),
+            ("indoor_forward_12_davis", (20e6, 50e6)),
+        ]
+
+        # download data
+        if self.download:
+            # urls
+            base_url_rec = "http://rpg.ifi.uzh.ch/datasets/uzh-fpv-newer-versions/v3/"
+            base_url_calib = "http://rpg.ifi.uzh.ch/datasets/uzh-fpv/calib/"
+
+            # go over recordings
+            for rec, _ in recordings:
+                name = ("_").join(rec.split("_")[:2])  # eg indoor_forward
+
+                # download raw data
+                raw_dir = self.root_dir / name
+                raw_dir.mkdir(parents=True, exist_ok=True)
+                if not (raw_dir / rec).exists():  # recording
+                    download_and_extract_archive(f"{base_url_rec}{rec}.zip", raw_dir / rec)
+                    (raw_dir / rec / f"{rec}.zip").unlink()
+                if not (raw_dir / "calib").exists():  # calibration
+                    download_and_extract_archive(f"{base_url_calib}{name}_calib_davis.zip", raw_dir / "calib")
+                    (raw_dir / "calib" / f"{name}_calib_davis.zip").unlink()
+
+                # process to h5
+                if not (self.root_dir / f"{rec}.h5").exists():
+                    # handy
+                    def append(dataset, data):
+                        n = len(data)
+                        if n == 0:
+                            return
+                        dataset.resize(len(dataset) + n, axis=0)
+                        dataset[-n:] = data
+
+                    # store
+                    with h5py.File(self.root_dir / f"{rec}.h5", "w") as h5f:
+                        # make datasets
+                        h5f.create_dataset(
+                            "events/t",
+                            (0,),
+                            maxshape=(None,),
+                            chunks=True,
+                            dtype=np.uint32,
+                            compression=hdf5plugin.Zstd(),
+                        )
+                        h5f.create_dataset(
+                            "events/y",
+                            (0,),
+                            maxshape=(None,),
+                            chunks=True,
+                            dtype=np.uint16,
+                            compression=hdf5plugin.Zstd(),
+                        )
+                        h5f.create_dataset(
+                            "events/x",
+                            (0,),
+                            maxshape=(None,),
+                            chunks=True,
+                            dtype=np.uint16,
+                            compression=hdf5plugin.Zstd(),
+                        )
+                        h5f.create_dataset(
+                            "events/p",
+                            (0,),
+                            maxshape=(None,),
+                            chunks=True,
+                            dtype=np.uint8,
+                            compression=hdf5plugin.Zstd(),
+                        )
+
+                        # convert events
+                        events = pd.read_csv(
+                            raw_dir / rec / "events.txt",
+                            delimiter=" ",
+                            skiprows=1,
+                            names=["t", "x", "y", "p"],
+                            chunksize=1e6,
+                        )
+                        t0 = None
+                        for df in track(events, description=f"Converting {rec} to h5..."):
+                            if t0 is None:
+                                t0 = df["t"].iloc[0]
+                            df["t"] = (df["t"] - t0) * 1e6  # to us
+                            append(h5f["events/t"], df["t"].values.astype(np.uint32))
+                            append(h5f["events/y"], df["y"].values)
+                            append(h5f["events/x"], df["x"].values)
+                            append(h5f["events/p"], df["p"].values)
+
+                        # precompute backward rectification
+                        # kalibr equidistant = .fisheye
+                        with open(
+                            raw_dir / "calib" / f"{name}_calib_davis" / f"camchain-..{name}_calib_davis_cam.yaml", "r"
+                        ) as f:
+                            cam_to_cam = yaml.safe_load(f)
+                        fx, fy, cx, cy = cam_to_cam["cam0"]["intrinsics"]
+                        resolution = cam_to_cam["cam0"]["resolution"]  # xy
+                        K_dist = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+                        dist_coeffs = np.array(cam_to_cam["cam0"]["distortion_coeffs"])
+                        K_rect = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+                            K_dist, dist_coeffs, resolution, np.eye(3), balance=1
+                        )
+                        rect_map_x, rect_map_y = cv2.fisheye.initUndistortRectifyMap(
+                            K_dist, dist_coeffs, np.eye(3), K_rect, resolution, cv2.CV_32F
+                        )
+                        bw_rect_map = np.stack([rect_map_x, rect_map_y], axis=-1)
+
+                        # precompute forward rectification
+                        w, h = resolution
+                        grid_x, grid_y = np.meshgrid(np.arange(w), np.arange(h))
+                        original_coords = np.stack([grid_x, grid_y], axis=-1).reshape(-1, 1, 2).astype(np.float32)
+                        rect_coords = cv2.fisheye.undistortPoints(original_coords, K_dist, dist_coeffs, P=K_rect)
+                        fw_rect_map = rect_coords.reshape(h, w, 2)
+
+                        # store fw/bw rect maps as datasets (too big for attrs)
+                        h5f.create_dataset(
+                            "fw_rect_map",
+                            data=fw_rect_map,
+                            chunks=True,
+                            dtype=np.float32,
+                            compression=hdf5plugin.Zstd(),
+                        )
+                        h5f.create_dataset(
+                            "bw_rect_map",
+                            data=bw_rect_map,
+                            chunks=True,
+                            dtype=np.float32,
+                            compression=hdf5plugin.Zstd(),
+                        )
+
+                        # store some useful attributes
+                        h5f.attrs["sensor_size"] = (260, 346)
+                        h5f.attrs["K_rect"] = K_rect
+
+        # by default: all recordings, clipped to airborne parts
+        if self.train_recordings is None:
+            self.train_recordings = recordings.copy()
+        if self.val_recordings is None:
+            self.val_recordings = recordings.copy()
+
     def setup(self, stage):
         if stage == "fit":
             train_sequence = partial(
@@ -352,7 +503,7 @@ if __name__ == "__main__":
 
     # get config
     with initialize(config_path="../config/datamodule", version_base=None):
-        config = compose(config_name="uzh_fpv", overrides=["download=false"])
+        config = compose(config_name="uzh_fpv", overrides=["download=true"])
         # config = compose(config_name="speck", overrides=["download=false"])
 
     # download data

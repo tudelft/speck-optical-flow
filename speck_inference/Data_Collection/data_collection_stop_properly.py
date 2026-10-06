@@ -1,3 +1,7 @@
+from pathlib import Path
+# Recordings go to speck_inference/data_optical_flow
+DATA_DIR = Path(__file__).resolve().parent.parent / "data_optical_flow"
+
 import threading
 import samna
 import samnagui
@@ -11,7 +15,7 @@ import os
 
 class EventCollection:
     def __init__(self, buffer_size=10000, flush_interval=0.01):
-        self.img_folder = "/home/manu-singh/Speck_Optical_Flow/data_optical_flow"
+        self.img_folder = str(DATA_DIR)
         os.makedirs(self.img_folder, exist_ok=True)
 
         self.event_queue = queue.Queue(maxsize=buffer_size)

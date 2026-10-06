@@ -10,5 +10,5 @@ __pycache__/
 # runtime logs
 samna.log
 
-# px4_msgs is symlinked from homingdrone-ros2 (must match the custom PX4 firmware)
+# px4_msgs is cloned/symlinked separately (must match the PX4 firmware)
 src/px4_msgs

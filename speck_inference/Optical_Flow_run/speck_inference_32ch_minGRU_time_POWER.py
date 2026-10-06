@@ -1,3 +1,8 @@
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 from multiprocessing import Process
 import sinabs.backend.dynapcnn as sindynapcnn
 import sinabs.from_torch
@@ -23,8 +28,8 @@ import multiprocessing
 import onnxruntime as ort
 
 
-# checkpoint = torch.load("Optical_Flow_tinycmax/r8fc8pcd_16mingru_model.pt", map_location="cpu")
-checkpoint = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cpu")
+# checkpoint = torch.load(f"{RUN_DIR}/r8fc8pcd_16mingru_model.pt", map_location="cpu")
+checkpoint = torch.load(f"{RUN_DIR}/btlez3ib_model.pt", map_location="cpu")
 print("Checkpoint Keys:", checkpoint.keys())
 
 #---------------Making model ready--------------------------------------------
@@ -40,7 +45,7 @@ model = network_woenc_minGRU.WrappedFlowNetwork(
     scaling=32
 )
 
-state_dict = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
+state_dict = torch.load(f"{RUN_DIR}/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
 print(state_dict.keys())
 
 ## Skipping the encoder states
@@ -58,7 +63,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
 # onnx model check
-onnx_session = ort.InferenceSession("Optical_Flow_tinycmax/mem_decoder_network.onnx", providers=["CPUExecutionProvider"])
+onnx_session = ort.InferenceSession(f"{RUN_DIR}/mem_decoder_network.onnx", providers=["CPUExecutionProvider"])
 #------------------------------------------------------------------
 
 ann = nn.Sequential(
@@ -463,10 +468,10 @@ for record in ps:
 
 # import pickle
 
-# with open('Optical_Flow_tinycmax/data/flow_maps_for_trajectory.npy', 'wb') as f:
+# with open(f'{DATA_DIR}/flow_maps_for_trajectory.npy', 'wb') as f:
 #     pickle.dump(trajectory, f)
 
-# output_path = "Optical_Flow_tinycmax/data/power_data32.npy"
+# output_path = f"{DATA_DIR}/power_data32.npy"
 # os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
 # numpy_arrays = [np.array(data) for data in channel_data]

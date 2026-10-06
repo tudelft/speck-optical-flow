@@ -1,5 +1,5 @@
 _target_: lightning.pytorch.loggers.WandbLogger
-entity: manusingh-tu-delft
+entity: ${oc.env:WANDB_ENTITY,null}  # your W&B user/team
 project: tinycmax
 save_dir: logs
 log_model: all

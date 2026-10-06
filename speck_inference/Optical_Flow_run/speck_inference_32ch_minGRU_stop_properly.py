@@ -1,3 +1,8 @@
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 from multiprocessing import Process
 import sinabs.backend.dynapcnn as sindynapcnn
 import sinabs.from_torch
@@ -22,7 +27,7 @@ import threading
 import csv
 
 
-checkpoint = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cpu")
+checkpoint = torch.load(f"{RUN_DIR}/btlez3ib_model.pt", map_location="cpu")
 print("Checkpoint Keys:", checkpoint.keys())
 
 #---------------Making model ready--------------------------------------------
@@ -38,7 +43,7 @@ model = network_woenc_minGRU.WrappedFlowNetwork(
     scaling=32
 )
 
-state_dict = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
+state_dict = torch.load(f"{RUN_DIR}/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
 print(state_dict.keys())
 
 ## Skipping the encoder states
@@ -411,7 +416,7 @@ finally:
     gui_process.terminate()
     gui_process.join()
 
-csv_file_path_in_sink = 'Optical_Flow_tinycmax/data/input_events_sink.csv'
+csv_file_path_in_sink = f'{DATA_DIR}/input_events_sink.csv'
 
 
 # with open(csv_file_path_in_sink, mode='a', newline='') as csv_file:
@@ -433,7 +438,7 @@ print("input events done!")
 
 import pickle
 
-# with open('Optical_Flow_tinycmax/data/collection2_32minGRU.npy', 'wb') as f:
+# with open(f'{DATA_DIR}/collection2_32minGRU.npy', 'wb') as f:
 #     pickle.dump(collection2, f)
 
 print("collection done!")

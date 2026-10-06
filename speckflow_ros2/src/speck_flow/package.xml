@@ -4,7 +4,7 @@
   <name>speck_flow</name>
   <version>0.1.0</version>
   <description>Speck DVS optical flow estimation using spiking neural networks.</description>
-  <maintainer email="dekchuen@gmail.com">dfordequan</maintainer>
+  <maintainer email="d.ou@tudelft.nl">Dequan Ou</maintainer>
   <license>MIT</license>
 
   <depend>rclpy</depend>

@@ -1,5 +1,9 @@
 # Collect events from Speck (x, y, t, p) and save to CSV in real time
 
+from pathlib import Path
+# Recordings go to speck_inference/data_optical_flow
+DATA_DIR = Path(__file__).resolve().parent.parent / "data_optical_flow"
+
 import sinabs
 import sinabs.backend.dynapcnn as sio
 import os
@@ -19,7 +23,7 @@ import json
 
 class EventCollection:
     def __init__(self, buffer_size=50000, flush_interval=0.01):
-        self.img_folder = "/home/manu-singh/Speck_Optical_Flow/data_optical_flow"
+        self.img_folder = str(DATA_DIR)
         self.infer_count = 0
         self.event_queue = queue.Queue(maxsize=buffer_size)
         self.buffer_size = buffer_size

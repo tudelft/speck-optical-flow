@@ -1,3 +1,8 @@
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 from bisect import bisect_left
 from dataclasses import dataclass
 from functools import partial
@@ -258,7 +263,7 @@ class UzhFpvSequence:
     
 val_sequence = partial(
                 UzhFpvSequence,
-                root_dir= Path("Optical_Flow_tinycmax/data/speck"),
+                root_dir= DATA_DIR / "speck",
                 recording='events_orig3', # events_hand
                 time_window=10000,
             )
@@ -297,8 +302,8 @@ frame = first_dataset[0]['frames'][0].unsqueeze(0)
 # # memory(torch.randn(1, 64, 16, 16), None)
 # # decoder(torch.randn(1, 64, 16, 16))
 
-# # checkpoint = torch.load("Optical_Flow_tinycmax/iterative_model_hand_16ch_nobias.pt", map_location="cpu")
-# checkpoint = torch.load("Optical_Flow_tinycmax/state_dict.pt", map_location="cpu")
+# # checkpoint = torch.load(f"{RUN_DIR}/iterative_model_hand_16ch_nobias.pt", map_location="cpu")
+# checkpoint = torch.load(f"{RUN_DIR}/state_dict.pt", map_location="cpu")
 
 
 # enc_params = {k: v for k, v in checkpoint.items() if "enc" in k}
@@ -351,10 +356,10 @@ frame = first_dataset[0]['frames'][0].unsqueeze(0)
 # import pickle
 
 # ## saving flow outputs
-# # with open('Optical_Flow_tinycmax/data/tinycmax_outputs_flow_16ch_hand.npy', 'wb') as f:
+# # with open(f'{DATA_DIR}/tinycmax_outputs_flow_16ch_hand.npy', 'wb') as f:
 # #     pickle.dump(tinycmax_final_output, f)
 
-# with open('Optical_Flow_tinycmax/data/tinycmax_outputs_original_states.npy', 'wb') as f:
+# with open(f'{DATA_DIR}/tinycmax_outputs_original_states.npy', 'wb') as f:
 #     pickle.dump(tinycmax_final_output, f)
 
 
@@ -372,7 +377,7 @@ model = network.WrappedFlowNetwork(
     scaling=32
 )
 
-state_dict = torch.load("Optical_Flow_tinycmax/iterative_model_hand_16ch.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
+state_dict = torch.load(f"{RUN_DIR}/iterative_model_hand_16ch.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
 print(state_dict.keys())
 
 new_state_dict = {}
@@ -409,9 +414,9 @@ for i in range(len(first_dataset)):  # Or len(first_dataset)
 
 
 import pickle
-# with open('Optical_Flow_tinycmax/data/rqe_hand_states_ann.npy', 'wb') as f:
+# with open(f'{DATA_DIR}/rqe_hand_states_ann.npy', 'wb') as f:
 #     pickle.dump(tinycmax_final_output, f)
 
-with open('Optical_Flow_tinycmax/data/of_orig3_states_ann.npy', 'wb') as f:
+with open(f'{DATA_DIR}/of_orig3_states_ann.npy', 'wb') as f:
     pickle.dump(tinycmax_final_output, f)
 

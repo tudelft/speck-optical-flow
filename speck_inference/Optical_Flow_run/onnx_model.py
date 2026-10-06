@@ -1,3 +1,8 @@
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 import network_woenc_minGRU 
 import torch
 import torch.nn as nn
@@ -11,7 +16,7 @@ model = network_woenc_minGRU.WrappedFlowNetwork(
     scaling=32
 )
 
-state_dict = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
+state_dict = torch.load(f"{RUN_DIR}/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
 print(state_dict.keys())
 
 ## Skipping the encoder states
@@ -41,7 +46,7 @@ dummy_hidden = torch.zeros(B, C, H, W).to(device)
 torch.onnx.export(
     model,
     (dummy_events, dummy_hidden),  # Tuple of args
-    "Optical_Flow_tinycmax/mem_decoder_network.onnx",
+    f"{RUN_DIR}/mem_decoder_network.onnx",
     input_names=["events", "hidden"],
     output_names=["flow", "new_hidden"],
     dynamic_axes={

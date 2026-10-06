@@ -12,6 +12,11 @@ Fix 2025‑07‑21:
 Everything else (ONNX I/O, divergence math, visualiser) is unchanged.
 """
 from __future__ import annotations
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 
 from multiprocessing import Process
 import threading
@@ -30,7 +35,7 @@ from sinabs.backend.dynapcnn.chip_factory import ChipFactory
 # ───────────────────────────────────────────────────────────────
 #  Configuration
 # ───────────────────────────────────────────────────────────────
-MODEL_ONNX = Path("Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1_ANN.onnx")
+MODEL_ONNX = Path(f"{RUN_DIR}/qs95vlk2_minGRU_depth1_ANN.onnx")
 HIDDEN_SHAPE = (1, 32, 16, 16)          # (B,C,H,W) – must match ONNX output
 RASTER_SHAPE = (1, 2, 128, 128)         # **fixed** (batch,polarity,H,W)
 DVS_DT_MS = 10                           # How often to pull events (ms)

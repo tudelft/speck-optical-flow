@@ -1,4 +1,18 @@
-# TinyCMax
+# Training (TinyCMax for Speck)
+
+Self-supervised training code for the Speck optical flow network. It is a fork of
+[Huizerd/tinycmax](https://github.com/Huizerd/tinycmax) by Jesse Hagenaars. It adds the
+compact encoder + minGRU + decoder network used in the paper and a Speck event dataset loader
+([`config/datamodule/speck.yaml`](config/datamodule/speck.yaml)).
+
+The trained weights used in the paper are in this folder (`qs95vlk2_minGRU_depth1_model.pt`: minGRU, 32 channels)
+and in [`../speck_inference/Optical_Flow_run`](../speck_inference/Optical_Flow_run), where the Speck deployment
+scripts load them.
+
+The original TinyCMax README follows.
+
+---
+
 
 |   Warping  |                             Events, flow, accumulated events, image of warped events       |
 |-----------|:--------------------------------------------------------------------:|
@@ -23,9 +37,12 @@ Training curves and trained model checkpoints can be found on [Weights & Biases]
 Requires a NVIDIA GPU to run due to CUDA dependencies.
 
 ```
-git clone --recurse-submodules git@github.com:Huizerd/tinycmax.git && cd tinycmax
-conda env create -f env.yaml && conda activate tinycmax && pre-commit install
+git clone --recurse-submodules https://github.com/tudelft/speck-optical-flow.git
+cd speck-optical-flow/training
+conda env create -f env.yaml && conda activate tinycmax
 ```
+
+If you cloned without `--recurse-submodules`, run `git submodule update --init` first (this fetches `cuda_event_ops`).
 
 ## Usage
 
@@ -33,6 +50,13 @@ conda env create -f env.yaml && conda activate tinycmax && pre-commit install
 ```
 python tinycmax/uzh_fpv.py 
 ```
+
+### Training on Speck recordings
+Put Speck recordings (HDF5, same format as the UZH-FPV files) in `data/speck/`. Then select the Speck datamodule:
+```
+python train.py datamodule=speck
+```
+Speck devkit recordings are collected as CSV with the scripts in [`../speck_inference/Data_Collection`](../speck_inference/Data_Collection) and must be converted to this HDF5 layout before training.
 
 ### Visualizing events in Rerun
 ```
@@ -44,7 +68,8 @@ python show.py
 python train.py
 ```
 - Logging to Weights & Biases:
-    - Create `logs` folder in repo root
+    - Set `WANDB_ENTITY` to your W&B user or team (`export WANDB_ENTITY=<name>`)
+    - Create `logs` folder in this folder
     - Run command with `logger=wandb logger.notes="some notes"` added
 - Visualize in Rerun:
     - Run `rerun` in separate window (with environment activated)
@@ -58,7 +83,8 @@ python validate.py runid=<run_id>
 - Run selection:
     - Get `run_id` from Weights & Biases
     - Add `checkpoint=<checkpoint_id>` to select specific checkpoint
-    - To use a pre-trained model, leave [`wandb.yaml`](config/logger/wandb.yaml) as-is and provide a `run_id` and `checkpoind_id` from our [Weights & Biases](https://wandb.ai/huizerd/tinycmax)
+    - Set `WANDB_ENTITY` to the W&B user/team that owns the run
+    - To use the original TinyCMax pre-trained models, set `WANDB_ENTITY=huizerd` and provide a `run_id` and `checkpoint_id` from [Weights & Biases](https://wandb.ai/huizerd/tinycmax)
 - Visualize in Rerun: same as above
 
 ### Generating videos

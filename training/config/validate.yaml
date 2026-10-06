@@ -4,7 +4,7 @@ defaults:
   - _self_
 
 wandb:
-  entity: manusingh-tu-delft
+  entity: ${oc.env:WANDB_ENTITY,null}  # W&B user/team that owns the run
   project: tinycmax
 
 stage: validate

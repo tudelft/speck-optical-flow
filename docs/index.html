@@ -89,7 +89,7 @@
   <h2>Results</h2>
   <p>Moving the encoder onto Speck roughly doubles the end-to-end inference rate compared with running the same network entirely on the Jetson, with no measurable change in power. Flow quality stays close to the full ANN and to heavier ResNet/GRU baselines. When the drone is moved along a square path, the mean Speck flow closely tracks a MicroAir MTF-01P optical-flow sensor (r = 0.88 and 0.80 for the two axes). Unlike that sensor, which gives one global vector, our pipeline gives a flow vector at every pixel.</p>
 
-  <p>We then close the loop on a real quadrotor. A PI controller maps the spatially averaged flow directly to roll and pitch setpoints for PX4, with no position estimate. The drone flies forward and holds a 90-second hover with mean body velocities of only a few cm/s. To our knowledge, this is the first closed-loop flight control using dense optical flow from the Speck chip. The code covers data collection, Speck deployment and the ROS 2 flight stack, and it is open source.</p>
+  <p>We then close the loop on a real quadrotor. A PI controller maps the spatially averaged flow directly to roll and pitch setpoints for PX4, with no position estimate. The drone flies forward and holds a 90-second hover with mean body velocities of only a few cm/s. To our knowledge, this is the first closed-loop flight control using dense optical flow from the Speck chip. The full code is open source under the MIT license: self-supervised training, Speck data collection and deployment, and the ROS 2 flight stack.</p>
 
   <h2 id="citation">Citation</h2>
 <pre>@inproceedings{singh2026speck,

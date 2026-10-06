@@ -17,13 +17,16 @@ Jetson Orin NX. The resulting flow drives closed-loop drone control (hover and f
 
 | Folder | Contents |
 |--------|----------|
+| [`training/`](training) | Self-supervised training (contrast maximization, iterative warping) of the encoder–minGRU–decoder network; fork of [tinycmax](https://github.com/Huizerd/tinycmax). Uses the [`cuda_event_ops`](https://github.com/tudelft/cuda_event_ops) submodule. |
 | [`speck_inference/`](speck_inference) | Speck devkit data collection, ANN→SNN conversion of the encoder, live hybrid inference on Speck + Jetson, latency/power scripts, and trained model weights (`Optical_Flow_run/`). |
 | [`speckflow_ros2/`](speckflow_ros2) | ROS 2 (Humble) workspace that runs on the drone: `speck_flow` (Speck flow node), `speckflow_control` (flow-based PI controller and state machine for PX4 offboard), `mocap_relay`. |
 | [`docs/`](docs) | Project web page. |
 
-The self-supervised training code (contrast maximization with iterative warping, built on
-[tinycmax](https://github.com/Huizerd/tinycmax)) is in
-[MANUPRIYASINGH/tinycmax_speck](https://github.com/MANUPRIYASINGH/tinycmax_speck).
+Clone with submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/tudelft/speck-optical-flow.git
+```
 
 See the README in each folder for installation and usage.
 
@@ -31,6 +34,10 @@ See the README in each folder for installation and usage.
 
 The SynSense devkit firmware images that `speck_inference/SINABS_STUFF/images_flash.py` expects
 (`motherBoardV2_0_11_5.img`, `Speck2eDevKit_1_0_1_1_0.bin`) are not included. Get them from SynSense.
+
+## License
+
+MIT, see [LICENSE](LICENSE). The `cuda_event_ops` submodule is a separate repository with its own terms.
 
 ## Citation
 

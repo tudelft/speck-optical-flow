@@ -1,3 +1,8 @@
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 from multiprocessing import Process
 import sinabs.backend.dynapcnn as sindynapcnn
 import sinabs.from_torch
@@ -25,16 +30,16 @@ import pickle
 import csv
 
 
-# checkpoint = torch.load("Optical_Flow_tinycmax/r8fc8pcd_16mingru_model.pt", map_location="cpu")
-#checkpoint = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cpu")
-checkpoint = torch.load("Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1_model.pt", map_location="cpu")
+# checkpoint = torch.load(f"{RUN_DIR}/r8fc8pcd_16mingru_model.pt", map_location="cpu")
+#checkpoint = torch.load(f"{RUN_DIR}/btlez3ib_model.pt", map_location="cpu")
+checkpoint = torch.load(f"{RUN_DIR}/qs95vlk2_minGRU_depth1_model.pt", map_location="cpu")
 print("Checkpoint Keys:", checkpoint.keys())
 
 #---------------Making model ready--------------------------------------------
 
 # onnx model check 
-#onnx_session = ort.InferenceSession("Optical_Flow_tinycmax/mem_decoder_network.onnx", providers=["CPUExecutionProvider"])
-onnx_session = ort.InferenceSession("Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1.onnx", providers=["CPUExecutionProvider"])
+#onnx_session = ort.InferenceSession(f"{RUN_DIR}/mem_decoder_network.onnx", providers=["CPUExecutionProvider"])
+onnx_session = ort.InferenceSession(f"{RUN_DIR}/qs95vlk2_minGRU_depth1.onnx", providers=["CPUExecutionProvider"])
 #------------------------------------------------------------------
 
 ann = nn.Sequential(
@@ -509,10 +514,10 @@ finally:
     gui_process.terminate()
     gui_process.join()
 
-# with open('Optical_Flow_tinycmax/data/flow_check/trajectory32_divergence14_7_2.npy', 'wb') as f:
+# with open(f'{DATA_DIR}/flow_check/trajectory32_divergence14_7_2.npy', 'wb') as f:
 #     pickle.dump(trajectory, f)
 
-# csv_file_path_in_sink = 'Optical_Flow_tinycmax/data/input_events_div_14_7_2.csv'
+# csv_file_path_in_sink = f'{DATA_DIR}/input_events_div_14_7_2.csv'
 
 
 # with open(csv_file_path_in_sink, mode='a', newline='') as csv_file:
@@ -542,10 +547,10 @@ finally:
 
 # import pickle
 
-# with open('Optical_Flow_tinycmax/data/flow_maps_for_trajectory32.npy', 'wb') as f:
+# with open(f'{DATA_DIR}/flow_maps_for_trajectory32.npy', 'wb') as f:
 #     pickle.dump(trajectory, f)
 
-# output_path = "Optical_Flow_tinycmax/data/power_data32.npy"
+# output_path = f"{DATA_DIR}/power_data32.npy"
 # os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
 # numpy_arrays = [np.array(data) for data in channel_data]

@@ -1,4 +1,9 @@
 
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent.parent / "Optical_Flow_run"  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 import torch
 import torchvision.transforms as T
 from PIL import Image
@@ -6,7 +11,7 @@ import os
 import pickle
 
 
-with open('Optical_Flow_tinycmax/data/hollow_rasters.npy', 'rb') as f:
+with open(f'{DATA_DIR}/hollow_rasters.npy', 'rb') as f:
     hollow_rasters = pickle.load(f)
 
 # print(speck_output[10])
@@ -39,10 +44,10 @@ with open('Optical_Flow_tinycmax/data/hollow_rasters.npy', 'rb') as f:
 #     pil_img = Image.fromarray(rgb_img.numpy(), mode='RGB')
 #     pil_img = pil_img.resize((128, 128), Image.NEAREST)
         
-#     pil_img.save(f"Optical_Flow_tinycmax/images/images_speck_4_4/t{t}.png")
+#     pil_img.save(f"{DATA_DIR}/images/images_speck_4_4/t{t}.png")
 
 
-os.makedirs("Optical_Flow_tinycmax/images/hollow_raster_images", exist_ok=True)
+os.makedirs(f"{DATA_DIR}/images/hollow_raster_images", exist_ok=True)
 
 # Save rasters as grayscale images
 for t, tensor in enumerate(hollow_rasters):
@@ -57,6 +62,6 @@ for t, tensor in enumerate(hollow_rasters):
     pil_img = pil_img.resize((128, 128), Image.NEAREST)
 
     # Save the image
-    pil_img.save(f"Optical_Flow_tinycmax/images/hollow_raster_images/step_{t:03d}.png")
+    pil_img.save(f"{DATA_DIR}/images/hollow_raster_images/step_{t:03d}.png")
 
 

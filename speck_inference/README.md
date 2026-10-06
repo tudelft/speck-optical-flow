@@ -1,21 +1,33 @@
-# Speck_Optical_Flow
-This repository aim is to capture all the work done to get optical flow vectors using SPECK™ devkit. To run first installation of sinabs is required.
+# Speck inference and data collection
 
-## Data Collection
-The folder Data_Collection contains the code `data_collection_csv_new.py` required to collect data using speck2e devkit. This code is not available on sinabs(Deep Learning library for Spiking Neural Network for speck) site. 
+Code that runs on the Speck2e devkit side: event recording, ANN→SNN conversion of the trained encoder,
+and live hybrid inference. The spiking encoder runs on Speck; the minGRU memory and decoder run on the host
+(Jetson Orin NX in the paper) through ONNX Runtime. Install `sinabs` and `samna` first (`pip install -r requirements.txt`).
 
-## Optical Flow Requirements
-The optical flow inference leverages the contrast maximization framework that uses Self-supervised learning with iterative warping [tincymax repo](https://github.com/MANUPRIYASINGH/tinycmax_speck). The framework contains encoder which downsamples the input data from (2, 128, 128) to (64, 16, 16), memory which Convolutional GRU and decoder which upsamples with bilinear interpolation. 
+## Data collection
 
-In speck, the complete framework cannot be put. However to make use of low latency, low power and low memory, simplified encoder is put on speck with ANN - SNN conversion. 
+[`Data_Collection/data_collection_csv_final.py`](Data_Collection/data_collection_csv_final.py) records events
+(x, y, t, p) from the Speck2e devkit to CSV in real time. Recordings are written to [`data_optical_flow/`](data_optical_flow).
+[`Data_Collection/csv_to_images_time.py`](Data_Collection/csv_to_images_time.py) renders a recording into frames and a video.
 
-The spike outputs are then converted to continuous floating point values using gaussian smoothening and then send the remaining network.
+## Live optical flow
 
-The complete inference is done live with incoming inputs and output optical flows. For this run code, `speck_inference_64ch.py`. 
+All scripts are in [`Optical_Flow_run/`](Optical_Flow_run). They load weights from that folder and write any
+arrays they save to `Optical_Flow_run/data/`, so they can be started from any working directory.
 
-All the required files are in Optical_Flow_run folder.
+| Script | Model |
+|--------|-------|
+| `speck_inference_32ch_minGRU_divergence.py` | Hybrid Speck + ANN, minGRU 32 ch (model used in the paper) |
+| `speck2f_inference_32ch_minGRU_divergence_withLatency.py` | Same, logging inference rate/latency |
+| `ANN_inference_32ch_minGRU_divergence*.py` | ANN-only baseline for comparison |
+| `speck_inference_64ch*.py`, `speck_inference_16ch_power.py` | Other channel widths / GRU variants evaluated in the paper |
+| `onnx_model*.py` | Export the memory + decoder part of a checkpoint to ONNX |
 
+The training code that produces these checkpoints is in [`../training`](../training).
+The onboard ROS 2 node that wraps this pipeline for flight is in [`../speckflow_ros2`](../speckflow_ros2).
 
+## Speck firmware
 
-
-
+[`SINABS_STUFF/images_flash.py`](SINABS_STUFF/images_flash.py) re-flashes the devkit. The firmware images it expects
+(`motherBoardV2_0_11_5.img`, `Speck2eDevKit_1_0_1_1_0.bin`) are not redistributed here; get them from SynSense.
+[`SINABS_STUFF/60-synsense.rules`](SINABS_STUFF/60-synsense.rules) is the udev rule for USB access on Linux.

@@ -27,9 +27,9 @@ def generate_launch_description():
     if os.path.exists(fastdds_profile):
         os.environ.setdefault('FASTRTPS_DEFAULT_PROFILES_FILE', fastdds_profile)
 
-    # Data directory
-    home_dir = str(Path.home())
-    data_base = os.path.join(home_dir, 'Developer', 'data', 'speckflow')
+    # Data directory (override with SPECKFLOW_DATA_DIR)
+    data_base = os.environ.get(
+        'SPECKFLOW_DATA_DIR', os.path.join(str(Path.home()), 'speckflow_data'))
     date_dir = datetime.now().strftime(f'{data_base}/%Y%m%d')
     os.makedirs(date_dir, exist_ok=True)
 

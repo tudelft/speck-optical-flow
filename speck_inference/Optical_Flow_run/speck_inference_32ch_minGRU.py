@@ -1,3 +1,8 @@
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 from multiprocessing import Process
 import sinabs.backend.dynapcnn as sindynapcnn
 import sinabs.from_torch
@@ -21,7 +26,7 @@ import queue
 import threading
 
 
-checkpoint = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cpu")
+checkpoint = torch.load(f"{RUN_DIR}/btlez3ib_model.pt", map_location="cpu")
 print("Checkpoint Keys:", checkpoint.keys())
 
 #---------------Making model ready--------------------------------------------
@@ -37,7 +42,7 @@ model = network_woenc_minGRU.WrappedFlowNetwork(
     scaling=32
 )
 
-state_dict = torch.load("Optical_Flow_tinycmax/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
+state_dict = torch.load(f"{RUN_DIR}/btlez3ib_model.pt", map_location="cuda" if torch.cuda.is_available() else "cpu")
 print(state_dict.keys())
 
 ## Skipping the encoder states
@@ -377,8 +382,8 @@ readout_filter.stop()
 graph.stop()
 
 # import pickle
-# # with open('Optical_Flow_tinycmax/data/collection1_custom64_lr.npy', 'wb') as f:
+# # with open(f'{DATA_DIR}/collection1_custom64_lr.npy', 'wb') as f:
 # #     pickle.dump(collection0, f)
 
-# with open('Optical_Flow_tinycmax/data/collection2_flowmaps64_depth.npy', 'wb') as f:
+# with open(f'{DATA_DIR}/collection2_flowmaps64_depth.npy', 'wb') as f:
 #     pickle.dump(collection2, f)

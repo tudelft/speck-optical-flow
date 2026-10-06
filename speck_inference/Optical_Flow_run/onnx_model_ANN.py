@@ -1,3 +1,8 @@
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 import torch
 import torch.nn as nn
 import network                    # <- your module with FlowNetwork
@@ -15,7 +20,7 @@ model_pt = network.WrappedFlowNetwork(
 )
 
 # ---- load checkpoint ----
-ckpt = torch.load("Optical_Flow_tinycmax/qs95vlk2_minGRU_depth1_model.pt", map_location="cpu")
+ckpt = torch.load(f"{RUN_DIR}/qs95vlk2_minGRU_depth1_model.pt", map_location="cpu")
 # strip “network.” prefix if present
 ckpt = {k.replace("network.", ""): v for k, v in ckpt.items()}
 missing, unexpected = model_pt.load_state_dict(ckpt, strict=False)

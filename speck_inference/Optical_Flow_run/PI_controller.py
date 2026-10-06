@@ -1,8 +1,13 @@
+from pathlib import Path
+RUN_DIR = Path(__file__).resolve().parent  # model weights (.pt/.onnx) live here
+DATA_DIR = Path(__file__).resolve().parent / "data"  # recorded/generated arrays
+DATA_DIR.mkdir(exist_ok=True)
+
 import matplotlib.pyplot as plt
 import pickle
 import numpy as np
 
-with open('Optical_Flow_tinycmax/data/flow_maps_for_trajectory.npy', 'rb') as f:
+with open(f'{DATA_DIR}/flow_maps_for_trajectory.npy', 'rb') as f:
     flow_sequence = pickle.load(f)
 
 print(len(flow_sequence))

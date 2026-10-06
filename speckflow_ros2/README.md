@@ -19,7 +19,7 @@ Closed-loop drone control using optical flow estimated from the Speck DVS sensor
 │           │                      │                    │          │
 │  ┌────────▼──────────────────────▼────────────────────▼──────┐  │
 │  │                    rosbag2 recorder                        │  │
-│  │              ~/Developer/data/speckflow/                   │  │
+│  │        ~/speckflow_data/  (or $SPECKFLOW_DATA_DIR)         │  │
 │  └────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -55,10 +55,9 @@ Any state ──► GEOFENCE_HOLD (on violation, permanent until RC takeover)
 git clone https://github.com/tudelft/speck-optical-flow.git ~/speck-optical-flow
 cd ~/speck-optical-flow/speckflow_ros2
 
-# px4_msgs is not tracked (it is git-ignored). Link it from your PX4 message workspace...
-ln -s ~/Developer/homingdrone-ros2/src/px4_msgs src/px4_msgs
-# ...or clone it and check out the branch matching your PX4 firmware:
-# git clone https://github.com/PX4/px4_msgs.git src/px4_msgs
+# px4_msgs is not tracked (it is git-ignored). Clone it and check out the branch
+# matching your PX4 firmware (or symlink an existing px4_msgs package):
+git clone https://github.com/PX4/px4_msgs.git src/px4_msgs
 
 pip install samna sinabs torch onnxruntime numpy   # only needed for the Speck node
 ```
@@ -183,7 +182,7 @@ ros2 param set /flight_control_node speck_ki_flow 0.015
 
 ## Data Logging
 
-Rosbag recorded automatically to `~/Developer/data/speckflow/YYYYMMDD/speckflow_YYYYMMDD-HHMMSS/`
+Rosbag recorded automatically to `~/speckflow_data/YYYYMMDD/speckflow_YYYYMMDD-HHMMSS/` (set `SPECKFLOW_DATA_DIR` to change the base folder)
 
 Recorded topics:
 - `/fmu/out/vehicle_odometry` - drone position/orientation
@@ -274,7 +273,7 @@ ros2 topic echo /speckflow/state    # watch state transitions
 
 **Verify** (post-flight):
 ```bash
-ros2 bag info ~/Developer/data/speckflow/YYYYMMDD/speckflow_*
+ros2 bag info ~/speckflow_data/YYYYMMDD/speckflow_*
 # Check that /fmu/out/vehicle_odometry has data
 
 # Plot position trace (should show square pattern)
@@ -511,39 +510,14 @@ flow_source: 'speck'
 | Speck not publishing | Check `ros2 topic echo /speck/optical_flow`. If zeros, hardware not detected |
 | hover_thrust_estimate = 0 msgs | Add `HoverThrustEstimate` to PX4 `dds_topics.yaml`, restart XRCE-DDS agent |
 
-## Analysis
-
-Post-flight analysis script generates plots from rosbag data.
-
-```bash
-# Source workspace (needed for px4_msgs)
-source ~/speck-optical-flow/speckflow_ros2/install/setup.bash
-
-# Analyse latest bag
-python3 ~/Developer/data/analyse/analyse_bag.py
-
-# Analyse specific bag
-python3 ~/Developer/data/analyse/analyse_bag.py ~/Developer/data/speckflow/20260221/speckflow_20260221-113504
-```
-
-**Generated plots** (saved to `~/Developer/data/analyse/YYYYMMDD/speckflow_YYYYMMDD-HHMMSS/`):
-- `xy_trace.png` — bird's eye XY position with setpoints
-- `altitude.png` — height + distance sensor over time
-- `heading.png` — heading vs yaw setpoint
-- `position_xyz.png` — X/Y/Z over time with setpoints
-- `optical_flow.png` — mtf-01p flow X/Y + quality (raw + low-pass filtered overlay)
-- `attitude_setpoints.png` — roll/pitch/thrust (flow modes only)
-- `state_timeline.png` — state machine timeline
-- `speck_flow.png` — speck flow X/Y/divergence (raw + filtered, only when speck data present)
-
 ## File Reference
 
 ```
-speckflow-ros2/
+speckflow_ros2/
 ├── fastdds_profile.xml
 ├── README.md
 ├── src/
-│   ├── px4_msgs/                              (symlink → homingdrone-ros2)
+│   ├── px4_msgs/                              (not tracked; clone PX4/px4_msgs)
 │   ├── speckflow_control/
 │   │   ├── config/params.yaml                 ← edit this for each step
 │   │   ├── launch/speckflow_launch.py
