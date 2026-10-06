@@ -1,0 +1,13 @@
+defaults:
+  - datamodule: uzh_fpv
+  - hydra: no_logging
+  - _self_
+
+wandb:
+  entity: manusingh-tu-delft
+  project: tinycmax
+
+stage: validate
+name: ${stage}_${runid}_${checkpoint}
+runid: ???
+checkpoint: latest

@@ -1,0 +1,12 @@
+defaults:
+  - datamodule: uzh_fpv
+  - litmodule: show
+  - trainer: default
+  - callbacks:
+    - progress
+    - live_vis
+  - hydra: no_logging
+  - _self_
+
+stage: validate
+name: show

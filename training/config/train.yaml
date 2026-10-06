@@ -1,0 +1,21 @@
+defaults:
+  - datamodule: uzh_fpv
+  #- datamodule: speck
+  - litmodule: train
+  - network: flow
+  - loss_fns@loss_fns.train:
+    - cmax
+  - loss_fns@loss_fns.validate:
+    - rsat
+  - optimizer: adam
+  - scheduler: nothing
+  - trainer: default
+  - callbacks:
+    - progress
+    - checkpoint
+  - logger: nothing
+  - hydra: no_logging
+  - _self_  # to disable warning
+
+stage: train
+name: ${stage}

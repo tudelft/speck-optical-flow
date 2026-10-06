@@ -1,0 +1,7 @@
+defaults:
+  - override hydra_logging: none  # override needed because set as default before
+  - override job_logging: none
+
+output_subdir: null  # not necessary to set hydra.job.chdir to false
+run:
+  dir: .  # without this, outputs directory is still created

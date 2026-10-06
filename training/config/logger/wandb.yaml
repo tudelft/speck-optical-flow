@@ -1,0 +1,6 @@
+_target_: lightning.pytorch.loggers.WandbLogger
+entity: manusingh-tu-delft
+project: tinycmax
+save_dir: logs
+log_model: all
+notes: null

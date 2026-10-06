@@ -1,0 +1,7 @@
+_target_: torch.optim.lr_scheduler.OneCycleLR
+_partial_: true
+max_lr: ${..optimizer.lr}
+epochs: ${..trainer.max_epochs}
+pct_start: 0.05
+cycle_momentum: false
+anneal_strategy: linear

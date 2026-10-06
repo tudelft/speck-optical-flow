@@ -1,0 +1,4 @@
+_target_: torch.optim.Adam
+_partial_: true
+lr: 1.e-4
+gradient_clip_val: 1.0  # not passed to optimizer but popped later

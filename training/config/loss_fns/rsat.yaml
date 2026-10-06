@@ -1,0 +1,5 @@
+rsat:
+  _target_: tinycmax.cmax.RatioSquaredAvgTimestamps
+  accumulation_window: ${...train.cmax.accumulation_window}  # same as cmax
+  base: ${.accumulation_window}
+  warp: ${...train.cmax.warp}
