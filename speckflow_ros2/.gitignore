@@ -1,0 +1,14 @@
+# colcon build outputs
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+
+# runtime logs
+samna.log
+
+# px4_msgs is symlinked from homingdrone-ros2 (must match the custom PX4 firmware)
+src/px4_msgs

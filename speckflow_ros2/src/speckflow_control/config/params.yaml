@@ -1,0 +1,60 @@
+flight_control_node:
+  ros__parameters:
+    # ── Flight Mode ──
+    flight_mode: 'flow_hover'         # waypoint | flow_hover | flow_hover_thrust
+    flow_source: 'speck'              # sensor | speck
+
+    # ── Waypoint Flight (Steps 1, 4) ──
+    square_size: 3.0                  # meters (side length)
+    flight_height: -1.3               # NED: negative = up (1.3m — high enough for hover thrust est)
+    reach_point_margin: 0.15          # meters to WP before "reached"
+    reach_yaw_margin: 0.174           # radians (~10 deg)
+    position_clamp: 0.25             # max position step per tick (m) — controls speed
+    yaw_clamp: 0.4                    # max yaw step per tick (rad)
+    yaw_to_waypoint: false            # true = rotate to face each WP before flying
+
+    # ── Geofence Safety ──
+    geofence_xy: 3.5                  # half-width from start (7x7m box)
+    geofence_z: -3.0                  # NED ceiling (-3.0 = 3m above start)
+
+    # ── Flow PI Controller: Horizontal ──
+    kp_flow: 0.35                     # proportional gain (tuned for mtf-01p scale ±0.01)
+    ki_flow: 0.17                     # integral gain
+    flow_integral_limit: 1.0          # anti-windup
+    max_roll_pitch: 0.262             # ~15 deg max roll/pitch
+
+    # ── Altitude PI Controller: Vertical ──
+    kp_alt: 0.075                     # proportional gain (halved from 0.15)
+    ki_alt: 0.02                      # integral gain (halved from 0.04)
+    alt_integral_limit: 0.3           # anti-windup
+    target_distance: 1.3              # hover height (meters, distance sensor) — match flight_height
+    thrust_min: 0.12                  # minimum thrust
+    thrust_max: 0.35                  # maximum thrust
+    hover_thrust: 0.25                # nominal hover thrust
+    use_px4_hover_thrust: true        # use PX4 HoverThrustEstimate
+    distance_alpha: 0.5               # distance sensor LP filter (0.5 = heavier, 50% old readings)
+
+    # ── Flow Sensor Filtering ──
+    sensor_alpha: 0.9                 # low-pass filter (higher = less filtering)
+    flow_offset_x: 0.0               # mtf-01p bias offset X (0.36 was wrong — raw hover ≈ 0)
+    flow_offset_y: 0.0               # mtf-01p bias offset Y (0.16 was wrong — raw hover ≈ 0)
+    bias_learning_rate: 0.001         # slow bias learning rate
+    bias_threshold: 0.02              # flow magnitude for bias learning
+
+    # ── Speck Flow Preprocessing ──
+    speck_alpha: 0.5                  # low-pass filter (lower = more filtering, was 0.7)
+    speck_offset_x: 0.0              # manual bias offset X (on top of auto-cal)
+    speck_offset_y: 0.0              # manual bias offset Y (on top of auto-cal)
+    speck_negate_x: true              # negate flow X axis (required per data analysis)
+    speck_negate_y: false             # negate flow Y axis
+    speck_calibration_samples: 200    # samples for auto bias calibration (~2s at 90Hz)
+
+    # ── Speck PI Gains (separate — speck signal ~12x larger than mtf-01p) ──
+    speck_kp_flow: 0.025             # proportional (= 0.35/14, conservative for first flight)
+    speck_ki_flow: 0.01              # integral (= 0.17/17, conservative)
+
+    # ── Translation Commands ──
+    # From square flight 151457: flow ≈ 0.37 * velocity (m/s)
+    # 0.05 ≈ 0.13 m/s, 0.07 ≈ 0.19 m/s, 0.10 ≈ 0.27 m/s
+    target_flow_u: 0.0                # target flow X: roll axis (0 = hover)
+    target_flow_v: 0.05               # target flow Y: pitch axis (+0.05 ≈ 0.13 m/s forward)
