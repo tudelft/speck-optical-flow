@@ -42,6 +42,31 @@ IDLE ──► TAKEOFF ──► MISSION (waypoint mode) ──► LANDING ─�
 Any state ──► GEOFENCE_HOLD (on violation, permanent until RC takeover)
 ```
 
+## Requirements
+
+- Ubuntu 22.04 + ROS 2 Humble (tested on Jetson Orin NX, JetPack 6)
+- PX4 with uXRCE-DDS bridge to the companion computer
+- `px4_msgs` generated from the **same PX4 firmware tree that runs on the flight controller** (not included in this repo, see below)
+- For the Speck sensor (`enable_speck:=true`): `samna`, `sinabs`, `torch`, `onnxruntime`, `numpy`
+
+## Setup
+
+```bash
+git clone git@github.com:dfordequan/speckflow_ros2.git ~/Developer/speckflow-ros2
+cd ~/Developer/speckflow-ros2
+
+# px4_msgs is not tracked (it is git-ignored). Link it from your PX4 message workspace...
+ln -s ~/Developer/homingdrone-ros2/src/px4_msgs src/px4_msgs
+# ...or clone it and check out the branch matching your PX4 firmware:
+# git clone https://github.com/PX4/px4_msgs.git src/px4_msgs
+
+pip install samna sinabs torch onnxruntime numpy   # only needed for the Speck node
+```
+
+The `speck_flow` node loads its SNN weights (`qs95vlk2_minGRU_depth1_model.pt` / `.onnx`) from a
+hard-coded `model_path` in [speck_flow_node.py](src/speck_flow/speck_flow/speck_flow_node.py).
+These weights are not in the repo, so edit that path on a new machine.
+
 ## Quick Start
 
 ```bash
