@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speck Optical Flow</title>
+<meta name="description" content="Optical Flow Estimation using Speck Neuromorphic Hardware (ICRA 2026): dense event-based optical flow on the SynSense Speck chip for closed-loop drone control.">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1d1d1f; --muted: #5b5b66; --accent: #00a6d6;
+    --card: #f4f6f8; --border: #e2e5ea; --code: #f4f6f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121417; --fg: #e8e9ec; --muted: #a0a4ad; --accent: #3cc3ea;
+      --card: #1c1f24; --border: #2c3038; --code: #1c1f24;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121417; --fg: #e8e9ec; --muted: #a0a4ad; --accent: #3cc3ea;
+    --card: #1c1f24; --border: #2c3038; --code: #1c1f24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 48px 16px 64px; }
+  header { text-align: center; margin-bottom: 36px; }
+  h1 { font-size: clamp(1.6rem, 4.5vw, 2.3rem); line-height: 1.2; margin: 0 0 16px; letter-spacing: -0.01em; }
+  .authors { font-size: 1.05rem; margin: 0 0 4px; }
+  .affil, .venue { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .venue { font-weight: 600; color: var(--fg); margin-top: 8px; }
+  .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+  .links a {
+    display: inline-block; padding: 8px 18px; border-radius: 999px; text-decoration: none;
+    background: var(--fg); color: var(--bg); font-weight: 600; font-size: 0.95rem;
+  }
+  .links a:hover { background: var(--accent); color: #fff; }
+  figure { margin: 32px 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--border); background: #fff; }
+  figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 10px; }
+  h2 { font-size: 1.3rem; margin: 40px 0 12px; }
+  p { margin: 0 0 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 24px 0; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .stat b { display: block; font-size: 1.4rem; color: var(--accent); }
+  .stat span { font-size: 0.88rem; color: var(--muted); }
+  pre { background: var(--code); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
+  a { color: var(--accent); }
+  footer { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: 48px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Optical Flow Estimation using Speck Neuromorphic Hardware</h1>
+    <p class="authors">Manupriya Singh, Dequan Ou, Jesse J. Hagenaars, Guido C. H. E. de Croon</p>
+    <p class="affil">Micro Air Vehicle Lab, Faculty of Aerospace Engineering, Delft University of Technology</p>
+    <p class="venue">IEEE International Conference on Robotics and Automation (ICRA) 2026, Vienna</p>
+    <nav class="links">
+      <a href="https://doi.org/10.1109/ICRA57385.2026.11696264">Paper</a>
+      <a href="https://github.com/tudelft/speck-optical-flow">Code</a>
+      <a href="#citation">BibTeX</a>
+    </nav>
+  </header>
+
+  <figure>
+    <img src="assets/fig1_overview.jpg" alt="A quadrotor flying over a textured floor. Below it, the pipeline: the Speck chip turns a continuous stream of events into spikes, and an Nvidia Jetson Orin turns those into dense optical flow maps of size 2 by 128 by 128.">
+    <figcaption>Autonomous drone control driven by optical flow estimated with the Speck neuromorphic processor. A spiking encoder runs on Speck; a small recurrent unit and decoder on the Jetson Orin NX output dense flow.</figcaption>
+  </figure>
+
+  <h2>Overview</h2>
+  <p>Small drones have very little room, weight and power for perception. Neuromorphic hardware is a natural fit: event cameras report only the pixels whose brightness changes, and spiking neural networks process those sparse events asynchronously. SynSense's <b>Speck</b> puts a 128&times;128 dynamic vision sensor and a spiking convolutional processor on a single tiny chip. It is far more constrained than research chips such as Intel's Loihi, with about 0.32 M neurons in 9 convolutional layers and simple integrate-and-fire neurons. Until now it had been used for classification-style tasks such as place recognition and face detection, not for the continuous regression a flying robot needs.</p>
+
+  <p>We train a compact encoder&ndash;memory&ndash;decoder network with only 34.9k parameters. It learns optical flow self-supervised from raw events with a contrast-maximization loss and iterative warping, so no ground-truth flow is needed. Events are binned into 10&nbsp;ms windows. After training as a conventional ANN, the three-layer convolutional encoder is converted into a spiking network and deployed on Speck. Because Speck cannot run gated recurrence, the minGRU memory and the decoder run on an onboard Nvidia Jetson Orin NX. This hybrid SNN&ndash;ANN pipeline turns the event stream into a dense 128&times;128 flow field in real time.</p>
+
+  <figure>
+    <img src="assets/fig2_network.jpg" alt="Network diagram: a three-layer convolutional encoder (converted to a spiking network on Speck), a minGRU memory and a two-layer convolutional decoder. Training uses a contrast maximization loss that deblurs the accumulated event image.">
+    <figcaption>Self-supervised training pipeline. The encoder is converted to an SNN with integrate-and-fire neurons for Speck; the minGRU and decoder run on the companion computer. Training sharpens the image of warped events through contrast maximization.</figcaption>
+  </figure>
+
+  <div class="stats">
+    <div class="stat"><b>~2&times;</b><span>inference rate vs. an ANN-only pipeline, at the same power</span></div>
+    <div class="stat"><b>r = 0.88</b><span>correlation with a commercial flow sensor (lateral axis)</span></div>
+    <div class="stat"><b>90 s</b><span>stable hover using optical flow as the only feedback</span></div>
+  </div>
+
+  <h2>Results</h2>
+  <p>Moving the encoder onto Speck roughly doubles the end-to-end inference rate compared with running the same network entirely on the Jetson, with no measurable change in power. Flow quality stays close to the full ANN and to heavier ResNet/GRU baselines. When the drone is moved along a square path, the mean Speck flow closely tracks a MicroAir MTF-01P optical-flow sensor (r = 0.88 and 0.80 for the two axes). Unlike that sensor, which gives one global vector, our pipeline gives a flow vector at every pixel.</p>
+
+  <p>We then close the loop on a real quadrotor. A PI controller maps the spatially averaged flow directly to roll and pitch setpoints for PX4, with no position estimate. The drone flies forward and holds a 90-second hover with mean body velocities of only a few cm/s. To our knowledge, this is the first closed-loop flight control using dense optical flow from the Speck chip. The code covers data collection, Speck deployment and the ROS 2 flight stack, and it is open source.</p>
+
+  <h2 id="citation">Citation</h2>
+<pre>@inproceedings{singh2026speck,
+  title     = {Optical Flow Estimation using Speck Neuromorphic Hardware},
+  author    = {Singh, Manupriya and Ou, Dequan and Hagenaars, Jesse J. and de Croon, Guido C. H. E.},
+  booktitle = {2026 IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {12859--12866},
+  year      = {2026},
+  doi       = {10.1109/ICRA57385.2026.11696264}
+}</pre>
+
+  <footer>
+    This work was partly financed by the Dutch Research Council (NWO) under grant NNWA.1292.19.298 and the NWO VICI programme (grant 20663).
+  </footer>
+</main>
+</body>
+</html>

@@ -12,6 +12,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 
 import numpy as np
+import os
 import threading
 import time
 
@@ -25,6 +26,12 @@ class SpeckFlowNode(Node):
 
         # Filter parameter
         self.declare_parameter('sensor_alpha', 0.9)
+        # Directory holding qs95vlk2_minGRU_depth1_model.pt / .onnx
+        # (speck_inference/Optical_Flow_run in this repository)
+        self.declare_parameter('model_dir', os.environ.get(
+            'SPECK_MODEL_DIR',
+            os.path.expanduser(
+                '~/speck-optical-flow/speck_inference/Optical_Flow_run')))
 
         self.filtered_flow_x = 0.0
         self.filtered_flow_y = 0.0
@@ -64,7 +71,7 @@ class SpeckFlowNode(Node):
         self._ChipFactory = ChipFactory
 
         # Load model
-        model_path = '/home/neurobeedrone/Speck/Speck2/Speck_Optical_Flow/Optical_Flow_run'
+        model_path = self.get_parameter('model_dir').value
         checkpoint = torch.load(
             f'{model_path}/qs95vlk2_minGRU_depth1_model.pt',
             map_location='cpu')

@@ -23,7 +23,7 @@ from pathlib import Path
 def generate_launch_description():
     # Ensure FastDDS uses PREALLOCATED_WITH_REALLOC to handle px4_msgs size mismatches
     fastdds_profile = os.path.join(
-        str(Path.home()), 'Developer', 'speckflow-ros2', 'fastdds_profile.xml')
+        str(Path.home()), 'speck-optical-flow', 'speckflow_ros2', 'fastdds_profile.xml')
     if os.path.exists(fastdds_profile):
         os.environ.setdefault('FASTRTPS_DEFAULT_PROFILES_FILE', fastdds_profile)
 

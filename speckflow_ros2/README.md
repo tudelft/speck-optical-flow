@@ -52,8 +52,8 @@ Any state ──► GEOFENCE_HOLD (on violation, permanent until RC takeover)
 ## Setup
 
 ```bash
-git clone git@github.com:dfordequan/speckflow_ros2.git ~/Developer/speckflow-ros2
-cd ~/Developer/speckflow-ros2
+git clone https://github.com/tudelft/speck-optical-flow.git ~/speck-optical-flow
+cd ~/speck-optical-flow/speckflow_ros2
 
 # px4_msgs is not tracked (it is git-ignored). Link it from your PX4 message workspace...
 ln -s ~/Developer/homingdrone-ros2/src/px4_msgs src/px4_msgs
@@ -63,14 +63,15 @@ ln -s ~/Developer/homingdrone-ros2/src/px4_msgs src/px4_msgs
 pip install samna sinabs torch onnxruntime numpy   # only needed for the Speck node
 ```
 
-The `speck_flow` node loads its SNN weights (`qs95vlk2_minGRU_depth1_model.pt` / `.onnx`) from a
-hard-coded `model_path` in [speck_flow_node.py](src/speck_flow/speck_flow/speck_flow_node.py).
-These weights are not in the repo, so edit that path on a new machine.
+The `speck_flow` node loads its weights (`qs95vlk2_minGRU_depth1_model.pt` / `.onnx`) from
+[`../speck_inference/Optical_Flow_run`](../speck_inference/Optical_Flow_run). By default it looks in
+`~/speck-optical-flow/speck_inference/Optical_Flow_run`; if you cloned elsewhere, set the
+`SPECK_MODEL_DIR` environment variable or the node's `model_dir` parameter.
 
 ## Quick Start
 
 ```bash
-cd ~/Developer/speckflow-ros2
+cd ~/speck-optical-flow/speckflow_ros2
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(pwd)/fastdds_profile.xml
 source /opt/ros/humble/setup.bash
 
@@ -516,7 +517,7 @@ Post-flight analysis script generates plots from rosbag data.
 
 ```bash
 # Source workspace (needed for px4_msgs)
-source ~/Developer/speckflow-ros2/install/setup.bash
+source ~/speck-optical-flow/speckflow_ros2/install/setup.bash
 
 # Analyse latest bag
 python3 ~/Developer/data/analyse/analyse_bag.py
